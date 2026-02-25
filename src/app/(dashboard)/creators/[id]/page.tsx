@@ -92,11 +92,11 @@ export default function CreatorProfilePage() {
         return (
             <div className="page-container">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                    <div className="skeleton" style={{ width: 200, height: 20 }} />
-                    <div style={{ display: 'flex', gap: 24 }}>
-                        <div className="skeleton" style={{ width: 96, height: 96, borderRadius: 20 }} />
+                    <div className="skeleton" style={{ width: 140, height: 20 }} />
+                    <div className="glass-card" style={{ display: 'flex', gap: 24 }}>
+                        <div className="skeleton" style={{ width: 140, height: 140, borderRadius: 20 }} />
                         <div style={{ flex: 1 }}>
-                            <div className="skeleton" style={{ width: 300, height: 28, marginBottom: 8 }} />
+                            <div className="skeleton" style={{ width: 300, height: 32, marginBottom: 8 }} />
                             <div className="skeleton" style={{ width: 200, height: 16, marginBottom: 12 }} />
                             <div className="skeleton" style={{ width: '80%', height: 40 }} />
                         </div>
@@ -134,226 +134,248 @@ export default function CreatorProfilePage() {
                     color: 'var(--text-muted)',
                     textDecoration: 'none',
                     fontSize: 13,
-                    marginBottom: 24,
+                    marginBottom: 20,
                     transition: 'color 0.2s',
+                    fontWeight: 500
                 }}
             >
-                <ArrowLeft size={16} />
+                <ArrowLeft size={14} />
                 Back to Discovery
             </Link>
 
-            {/* Profile Header */}
-            <div className="glass-card" style={{ marginBottom: 24 }}>
-                <div className="profile-header">
-                    {creator.profile_pic_url ? (
-                        <img src={creator.profile_pic_url} alt={creator.name} className="profile-avatar" />
-                    ) : (
-                        <div
-                            className="profile-avatar"
-                            style={{
-                                background: 'var(--bg-glass)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <Users size={40} style={{ color: 'var(--text-muted)' }} />
-                        </div>
-                    )}
-                    <div className="profile-info">
-                        <h1 className="profile-name">{creator.name}</h1>
-                        <p className="profile-handle">
-                            {creator.country && `📍 ${creator.country} · `}
-                            {creator.custom_url && `@${creator.custom_url} · `}
-                            Scouted {new Date(creator.created_at).toLocaleDateString()}
+            {/* Profile Header Card */}
+            <div className="glass-card" style={{ marginBottom: 24, padding: 32, display: 'flex', gap: 32, alignItems: 'flex-start' }}>
+                {/* Avatar */}
+                {creator.profile_pic_url ? (
+                    <img
+                        src={creator.profile_pic_url}
+                        alt={creator.name}
+                        style={{
+                            width: 140,
+                            height: 140,
+                            borderRadius: 20,
+                            objectFit: 'contain',
+                            background: 'white',
+                            border: '1px solid var(--border-glass)',
+                            flexShrink: 0
+                        }}
+                    />
+                ) : (
+                    <div
+                        style={{
+                            width: 140,
+                            height: 140,
+                            borderRadius: 20,
+                            background: 'var(--bg-glass)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '1px solid var(--border-glass)',
+                            flexShrink: 0
+                        }}
+                    >
+                        <Users size={48} style={{ color: 'var(--text-muted)' }} />
+                    </div>
+                )}
+
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: 'white', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
+                        {creator.name}
+                    </h1>
+
+                    <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {creator.country && <span>📍 {creator.country} · </span>}
+                        {creator.custom_url && <span>@{creator.custom_url.replace('@', '')} · </span>}
+                        <span>Scouted {new Date(creator.created_at).toLocaleDateString()}</span>
+                    </p>
+
+                    {creator.description && (
+                        <p style={{ fontSize: 13.5, color: '#94a3b8', lineHeight: 1.6, margin: '0 0 20px 0', maxWidth: 700 }}>
+                            {creator.description.length > 350
+                                ? `${creator.description.slice(0, 350)}...`
+                                : creator.description}
                         </p>
-                        {creator.description && (
-                            <p className="profile-description">
-                                {creator.description.length > 300
-                                    ? `${creator.description.slice(0, 300)}...`
-                                    : creator.description}
-                            </p>
+                    )}
+
+                    {/* Social Links Layout matched to mockup */}
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <a
+                            href={creator.custom_url ? `https://www.youtube.com/${creator.custom_url.startsWith('@') ? creator.custom_url : '@' + creator.custom_url}` : `https://www.youtube.com/channel/${creator.youtube_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="social-link"
+                        >
+                            <ExternalLink size={14} /> YouTube Channel
+                        </a>
+                        {creator.telegram && (
+                            <a href={creator.telegram} target="_blank" rel="noopener noreferrer" className="social-link">
+                                <Send size={14} /> Telegram
+                            </a>
+                        )}
+                        {creator.email && (
+                            <a href={`mailto:${creator.email}`} className="social-link">
+                                <Mail size={14} /> {creator.email}
+                            </a>
+                        )}
+                        {creator.twitter && (
+                            <a href={creator.twitter} target="_blank" rel="noopener noreferrer" className="social-link">
+                                <AtSign size={14} /> Twitter
+                            </a>
+                        )}
+                        {creator.instagram && (
+                            <a href={creator.instagram} target="_blank" rel="noopener noreferrer" className="social-link">
+                                <Instagram size={14} /> Instagram
+                            </a>
+                        )}
+                        {creator.facebook && (
+                            <a href={creator.facebook} target="_blank" rel="noopener noreferrer" className="social-link">
+                                <Facebook size={14} /> Facebook
+                            </a>
+                        )}
+                        {creator.whatsapp && (
+                            <a href={creator.whatsapp} target="_blank" rel="noopener noreferrer" className="social-link">
+                                <MessageSquare size={14} /> WhatsApp
+                            </a>
+                        )}
+                        {creator.website && (
+                            <a href={creator.website} target="_blank" rel="noopener noreferrer" className="social-link">
+                                <Globe size={14} /> Website
+                            </a>
                         )}
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <div
-                            className={`creator-score ${creator.priority_score >= 70 ? 'high' : creator.priority_score >= 40 ? 'medium' : 'low'
-                                }`}
-                            style={{ width: 64, height: 64, fontSize: 20 }}
-                        >
-                            {creator.priority_score}
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Priority</div>
-                    </div>
                 </div>
 
-                {/* Social Links */}
-                <div className="social-links" style={{ marginTop: 4 }}>
-                    <a
-                        href={creator.custom_url ? `https://www.youtube.com/${creator.custom_url.startsWith('@') ? creator.custom_url : '@' + creator.custom_url}` : `https://www.youtube.com/channel/${creator.youtube_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="social-link"
+                {/* Score Circular Badge matched to mockup */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginLeft: 16 }}>
+                    <div
+                        className={`creator-score ${creator.priority_score >= 70 ? 'high' : creator.priority_score >= 40 ? 'medium' : 'low'}`}
+                        style={{ width: 64, height: 64, fontSize: 20 }}
                     >
-                        <ExternalLink size={14} /> YouTube Channel
-                    </a>
-                    {creator.telegram && (
-                        <a href={creator.telegram} target="_blank" rel="noopener noreferrer" className="social-link">
-                            <Send size={14} /> Telegram
-                        </a>
-                    )}
-                    {creator.twitter && (
-                        <a href={creator.twitter} target="_blank" rel="noopener noreferrer" className="social-link">
-                            <AtSign size={14} /> Twitter / X
-                        </a>
-                    )}
-                    {creator.instagram && (
-                        <a href={creator.instagram} target="_blank" rel="noopener noreferrer" className="social-link">
-                            <Instagram size={14} /> Instagram
-                        </a>
-                    )}
-                    {creator.facebook && (
-                        <a href={creator.facebook} target="_blank" rel="noopener noreferrer" className="social-link">
-                            <Facebook size={14} /> Facebook
-                        </a>
-                    )}
-                    {creator.whatsapp && (
-                        <a href={creator.whatsapp} target="_blank" rel="noopener noreferrer" className="social-link">
-                            <MessageSquare size={14} /> WhatsApp
-                        </a>
-                    )}
-                    {creator.website && (
-                        <a href={creator.website} target="_blank" rel="noopener noreferrer" className="social-link">
-                            <Globe size={14} /> Website
-                        </a>
-                    )}
-                    {creator.email && (
-                        <a href={`mailto:${creator.email}`} className="social-link">
-                            <Mail size={14} /> {creator.email}
-                        </a>
-                    )}
+                        {creator.priority_score}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, fontWeight: 500 }}>Priority</div>
                 </div>
             </div>
 
-            {/* Stats Grid */}
-            <div className="profile-stats-grid">
-                <div className="stat-card">
-                    <div className="stat-card-icon indigo"><Users size={20} /></div>
-                    <div className="stat-card-value">{formatNumber(creator.subscribers)}</div>
-                    <div className="stat-card-label">Subscribers</div>
+            {/* Stats Grid matching mockup */}
+            <div className="stats-grid" style={{ marginBottom: 24 }}>
+                <div className="stat-card" style={{ padding: 24 }}>
+                    <div className="stat-card-icon indigo" style={{ marginBottom: 16 }}><Users size={20} /></div>
+                    <div className="stat-card-value" style={{ fontSize: '1.75rem', marginBottom: 6 }}>{formatNumber(creator.subscribers)}</div>
+                    <div className="stat-card-label" style={{ fontSize: 12.5 }}>Subscribers</div>
                 </div>
-                <div className="stat-card">
-                    <div className="stat-card-icon cyan"><Eye size={20} /></div>
-                    <div className="stat-card-value">{formatNumber(creator.total_views)}</div>
-                    <div className="stat-card-label">Total Views</div>
+                <div className="stat-card" style={{ padding: 24 }}>
+                    <div className="stat-card-icon cyan" style={{ marginBottom: 16 }}><Eye size={20} /></div>
+                    <div className="stat-card-value" style={{ fontSize: '1.75rem', marginBottom: 6 }}>{formatNumber(creator.total_views)}</div>
+                    <div className="stat-card-label" style={{ fontSize: 12.5 }}>Total Views</div>
                 </div>
-                <div className="stat-card">
-                    <div className="stat-card-icon purple"><TrendingUp size={20} /></div>
-                    <div className="stat-card-value">{formatNumber(creator.avg_views)}</div>
-                    <div className="stat-card-label">Avg Views</div>
+                <div className="stat-card" style={{ padding: 24 }}>
+                    <div className="stat-card-icon purple" style={{ marginBottom: 16 }}><TrendingUp size={20} /></div>
+                    <div className="stat-card-value" style={{ fontSize: '1.75rem', marginBottom: 6 }}>{formatNumber(creator.avg_views)}</div>
+                    <div className="stat-card-label" style={{ fontSize: 12.5 }}>Avg Views</div>
                 </div>
-                <div className="stat-card">
-                    <div className="stat-card-icon emerald"><Video size={20} /></div>
-                    <div className="stat-card-value">{formatNumber(creator.video_count)}</div>
-                    <div className="stat-card-label">Videos</div>
+                <div className="stat-card" style={{ padding: 24 }}>
+                    <div className="stat-card-icon emerald" style={{ marginBottom: 16 }}><Video size={20} /></div>
+                    <div className="stat-card-value" style={{ fontSize: '1.75rem', marginBottom: 6 }}>{formatNumber(creator.video_count)}</div>
+                    <div className="stat-card-label" style={{ fontSize: 12.5 }}>Videos</div>
                 </div>
             </div>
 
-            {/* Score Breakdown & Details */}
-            <div className="profile-score-section">
-                <div className="glass-card">
-                    <h3 className="section-title">
-                        <Star size={16} style={{ display: 'inline', marginRight: 8 }} />
+            {/* Score Breakdown & Details matching mockup */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 24 }}>
+
+                {/* Score Breakdown Panel */}
+                <div className="glass-card" style={{ padding: 28 }}>
+                    <h3 className="section-title" style={{ marginBottom: 24 }}>
+                        <Star size={18} style={{ display: 'inline', color: 'white' }} />
                         Priority Score Breakdown
                     </h3>
-                    <div className="score-breakdown">
-                        <div className="score-bar-item">
-                            <span className="score-bar-label">Engagement</span>
-                            <div className="score-bar-track">
-                                <div
-                                    className="score-bar-fill engagement"
-                                    style={{ width: `${scores.engagementScore}%` }}
-                                />
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: 'white', width: 100 }}>Engagement</span>
+                            <div className="score-bar-track" style={{ flex: 1 }}>
+                                <div className="score-bar-fill" style={{ width: `${scores.engagementScore}%`, background: 'var(--accent-cyan)' }} />
                             </div>
-                            <span className="score-bar-value">{scores.engagementScore}</span>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: 'white', width: 28, textAlign: 'right' }}>{scores.engagementScore}</span>
                         </div>
-                        <div className="score-bar-item">
-                            <span className="score-bar-label">Recency</span>
-                            <div className="score-bar-track">
-                                <div
-                                    className="score-bar-fill recency"
-                                    style={{ width: `${scores.recencyScore}%` }}
-                                />
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: 'white', width: 100 }}>Recency</span>
+                            <div className="score-bar-track" style={{ flex: 1 }}>
+                                <div className="score-bar-fill" style={{ width: `${scores.recencyScore}%`, background: 'var(--accent-emerald)' }} />
                             </div>
-                            <span className="score-bar-value">{scores.recencyScore}</span>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: 'white', width: 28, textAlign: 'right' }}>{scores.recencyScore}</span>
                         </div>
-                        <div className="score-bar-item">
-                            <span className="score-bar-label">Consistency</span>
-                            <div className="score-bar-track">
-                                <div
-                                    className="score-bar-fill consistency"
-                                    style={{ width: `${scores.consistencyScore}%` }}
-                                />
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: 'white', width: 100 }}>Consistency</span>
+                            <div className="score-bar-track" style={{ flex: 1 }}>
+                                <div className="score-bar-fill" style={{ width: `${scores.consistencyScore}%`, background: 'var(--accent-amber)' }} />
                             </div>
-                            <span className="score-bar-value">{scores.consistencyScore}</span>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: 'white', width: 28, textAlign: 'right' }}>{scores.consistencyScore}</span>
                         </div>
                     </div>
 
-                    <div style={{ marginTop: 20, padding: 14, background: 'var(--bg-glass)', borderRadius: 10, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.8 }}>
-                        <strong style={{ color: 'var(--text-secondary)' }}>Scoring Formula:</strong><br />
+                    <div style={{ marginTop: 32, padding: 18, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 12, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.6 }}>
+                        <strong style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Scoring Formula:</strong>
                         Engagement (60%) + Recency (30%) + Consistency (10%)
                     </div>
                 </div>
 
-                <div className="glass-card">
-                    <h3 className="section-title">
-                        <Activity size={16} style={{ display: 'inline', marginRight: 8 }} />
+                {/* Channel Details Panel */}
+                <div className="glass-card" style={{ padding: 28 }}>
+                    <h3 className="section-title" style={{ marginBottom: 24 }}>
+                        <Activity size={18} style={{ display: 'inline', color: 'white' }} />
                         Channel Details
                     </h3>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div className="stat-card-icon amber" style={{ width: 36, height: 36 }}>
-                                <BarChart3 size={16} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                            <div className="stat-card-icon amber" style={{ width: 44, height: 44, margin: 0, borderRadius: 12 }}>
+                                <BarChart3 size={18} />
                             </div>
                             <div>
-                                <div style={{ fontSize: 14, fontWeight: 600 }}>{creator.engagement_rate.toFixed(2)}%</div>
-                                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Engagement Rate</div>
+                                <div style={{ fontSize: 15, fontWeight: 700, color: 'white', marginBottom: 2 }}>{creator.engagement_rate.toFixed(2)}%</div>
+                                <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Engagement Rate</div>
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div className="stat-card-icon cyan" style={{ width: 36, height: 36 }}>
-                                <Clock size={16} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                            <div className="stat-card-icon cyan" style={{ width: 44, height: 44, margin: 0, borderRadius: 12 }}>
+                                <Clock size={18} />
                             </div>
                             <div>
-                                <div style={{ fontSize: 14, fontWeight: 600 }}>
+                                <div style={{ fontSize: 15, fontWeight: 700, color: 'white', marginBottom: 2 }}>
                                     {creator.upload_frequency.toFixed(1)} / month
                                 </div>
-                                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Upload Frequency</div>
+                                <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Upload Frequency</div>
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div className="stat-card-icon indigo" style={{ width: 36, height: 36 }}>
-                                <Globe size={16} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                            <div className="stat-card-icon purple" style={{ width: 44, height: 44, margin: 0, borderRadius: 12 }}>
+                                <Globe size={18} />
                             </div>
                             <div>
-                                <div style={{ fontSize: 14, fontWeight: 600 }}>{creator.country || 'Unknown'}</div>
-                                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Country</div>
+                                <div style={{ fontSize: 15, fontWeight: 700, color: 'white', marginBottom: 2 }}>{creator.country || 'Unknown'}</div>
+                                <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Country</div>
                             </div>
                         </div>
 
                         {campaigns.length > 0 && (
-                            <div style={{ marginTop: 8 }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            <div style={{ marginTop: 8, padding: 18, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 12 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                                     Added to Campaigns
                                 </div>
-                                {campaigns.map((c, i) => (
-                                    <div key={i} className="badge active" style={{ marginRight: 6, marginBottom: 6 }}>
-                                        {(c.campaigns as unknown as { name: string })?.name} ({c.stage})
-                                    </div>
-                                ))}
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                    {campaigns.map((c, i) => (
+                                        <div key={i} className="badge active">
+                                            {(c.campaigns as unknown as { name: string })?.name} ({c.stage})
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
     Plus, Target, Users, ChevronRight, Trash2, ArrowRight,
     Send, AtSign, Loader2, Download, Sparkles, Copy, Check, RefreshCw,
+    ArrowLeft, Zap,
 } from 'lucide-react';
 
 interface Campaign {
@@ -33,8 +34,22 @@ interface CampaignCreator {
 
 const STAGES = ['new', 'contacted', 'negotiating', 'partnered'] as const;
 const STAGE_LABELS: Record<string, string> = {
-    new: '🆕 New', contacted: '📨 Contacted',
-    negotiating: '🤝 Negotiating', partnered: '✅ Partnered',
+    new: 'New',
+    contacted: 'Contacted',
+    negotiating: 'Negotiating',
+    partnered: 'Partnered',
+};
+const STAGE_EMOJIS: Record<string, string> = {
+    new: '🆕',
+    contacted: '📨',
+    negotiating: '🤝',
+    partnered: '✅',
+};
+const STAGE_COLORS: Record<string, string> = {
+    new: 'rgba(99,102,241,0.5)',
+    contacted: 'rgba(6,182,212,0.5)',
+    negotiating: 'rgba(245,158,11,0.5)',
+    partnered: 'rgba(16,185,129,0.5)',
 };
 
 function formatNum(n: number) {
@@ -54,7 +69,6 @@ export default function CampaignsPage() {
     const [campaignCreators, setCampaignCreators] = useState<CampaignCreator[]>([]);
     const [loadingDetail, setLoadingDetail] = useState(false);
 
-    // Pitch modal state
     const [pitchModal, setPitchModal] = useState<{ creatorId: string; creatorName: string } | null>(null);
     const [pitchTone, setPitchTone] = useState<'professional' | 'casual' | 'friendly'>('friendly');
     const [pitchProductInfo, setPitchProductInfo] = useState('');
@@ -88,7 +102,8 @@ export default function CampaignsPage() {
     }
 
     async function loadDetail(id: string) {
-        setSelectedCampaign(id); setLoadingDetail(true);
+        setSelectedCampaign(id);
+        setLoadingDetail(true);
         try {
             const res = await fetch(`/api/campaigns/${id}`);
             const data = await res.json();
@@ -127,12 +142,7 @@ export default function CampaignsPage() {
             const res = await fetch('/api/pitch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    creatorId,
-                    campaignId: selectedCampaign,
-                    tone: pitchTone,
-                    productInfo: pitchProductInfo || undefined,
-                }),
+                body: JSON.stringify({ creatorId, campaignId: selectedCampaign, tone: pitchTone, productInfo: pitchProductInfo || undefined }),
             });
             const data = await res.json();
             setPitchResult(data);
@@ -147,25 +157,64 @@ export default function CampaignsPage() {
         setTimeout(() => setPitchCopied(false), 2000);
     }
 
+    // Campaign Detail (Kanban View)
     if (selectedCampaign) {
         const camp = campaigns.find(c => c.id === selectedCampaign);
+        const totalCreators = campaignCreators.length;
+
         return (
             <div className="page-container">
-                <button className="btn btn-ghost" onClick={() => setSelectedCampaign(null)} style={{ marginBottom: 16 }}>
-                    ← Back to Campaigns
-                </button>
+                {/* Back + Header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                    <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setSelectedCampaign(null)}
+                        style={{ gap: 6 }}
+                    >
+                        <ArrowLeft size={14} /> Back
+                    </button>
+                    <div style={{ width: 1, height: 20, background: 'var(--border-glass)' }} />
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Campaigns</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>/</span>
+                    <span style={{ fontSize: 13, color: 'white', fontWeight: 600 }}>{camp?.name}</span>
+                </div>
+
                 <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                        <h1 className="page-title">{camp?.name || 'Campaign'}</h1>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                            <h1 className="page-title" style={{ margin: 0 }}>{camp?.name || 'Campaign'}</h1>
+                            <span className={`badge ${camp?.status === 'active' ? 'engagement' : 'stale'}`}>
+                                {camp?.status}
+                            </span>
+                        </div>
                         <p className="page-subtitle">{camp?.description || 'Manage your outreach pipeline'}</p>
                     </div>
-                    <button className="btn btn-secondary" onClick={() => window.open(`/api/export?campaignId=${selectedCampaign}`, '_blank')}>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => window.open(`/api/export?campaignId=${selectedCampaign}`, '_blank')}
+                    >
                         <Download size={14} /> Export CSV
                     </button>
                 </div>
+
+                {/* Summary Stats */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+                    {STAGES.map(stage => {
+                        const count = campaignCreators.filter(cc => cc.stage === stage).length;
+                        return (
+                            <div key={stage} className="stat-card" style={{ padding: 16 }}>
+                                <div style={{ fontSize: 18, marginBottom: 6 }}>{STAGE_EMOJIS[stage]}</div>
+                                <div className="stat-card-value" style={{ fontSize: '1.5rem' }}>{count}</div>
+                                <div className="stat-card-label">{STAGE_LABELS[stage]}</div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Kanban Board */}
                 {loadingDetail ? (
-                    <div style={{ textAlign: 'center', padding: 40 }}>
-                        <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--accent-indigo)' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60 }}>
+                        <Loader2 size={28} className="loading-spinner" style={{ color: '#818cf8' }} />
                     </div>
                 ) : (
                     <div className="kanban-board">
@@ -174,51 +223,166 @@ export default function CampaignsPage() {
                             return (
                                 <div key={stage} className={`kanban-column ${stage}`}>
                                     <div className="kanban-column-header">
-                                        <span className="kanban-column-title">{STAGE_LABELS[stage]}</span>
+                                        <span className="kanban-column-title">
+                                            {STAGE_EMOJIS[stage]} {STAGE_LABELS[stage]}
+                                        </span>
                                         <span className="kanban-column-count">{items.length}</span>
                                     </div>
                                     <div className="kanban-cards">
                                         {items.map(cc => (
                                             <div key={cc.id} className="kanban-card">
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
                                                     {cc.creator.profile_pic_url ? (
-                                                        <img src={cc.creator.profile_pic_url} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover' }} />
+                                                        <img
+                                                            src={cc.creator.profile_pic_url}
+                                                            alt=""
+                                                            style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
+                                                        />
                                                     ) : (
-                                                        <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Users size={14} />
+                                                        <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                            <Users size={14} style={{ color: 'var(--text-muted)' }} />
                                                         </div>
                                                     )}
-                                                    <div>
-                                                        <Link href={`/creators/${cc.creator.id}`} className="kanban-card-name" style={{ textDecoration: 'none', color: 'inherit' }}>
+                                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                                        <Link
+                                                            href={`/creators/${cc.creator.id}`}
+                                                            className="kanban-card-name"
+                                                            style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                        >
                                                             {cc.creator.name}
                                                         </Link>
-                                                        <div className="kanban-card-meta">{formatNum(cc.creator.subscribers)} subs · Score: {cc.creator.priority_score}</div>
+                                                        <div className="kanban-card-meta">
+                                                            {formatNum(cc.creator.subscribers)} subs · <span style={{ color: '#818cf8' }}>#{cc.creator.priority_score}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="kanban-card-actions">
                                                     {stage !== 'partnered' && (
-                                                        <button className="btn btn-sm btn-success" onClick={() => updateStage(selectedCampaign, cc.creator.id, STAGES[STAGES.indexOf(stage) + 1])} title="Advance">
-                                                            <ArrowRight size={10} />
+                                                        <button
+                                                            className="btn btn-sm btn-success"
+                                                            onClick={() => updateStage(selectedCampaign, cc.creator.id, STAGES[STAGES.indexOf(stage) + 1])}
+                                                            title="Advance Stage"
+                                                        >
+                                                            <ArrowRight size={11} />
                                                         </button>
                                                     )}
-                                                    <button className="btn btn-sm btn-secondary" onClick={() => { setPitchModal({ creatorId: cc.creator.id, creatorName: cc.creator.name }); setPitchResult(null); }} title="Generate Pitch"><Sparkles size={10} /></button>
-                                                    {cc.creator.telegram && <a href={cc.creator.telegram} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary"><Send size={10} /></a>}
-                                                    {cc.creator.twitter && <a href={cc.creator.twitter} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary"><AtSign size={10} /></a>}
-                                                    <button className="btn btn-sm btn-danger" onClick={() => removeCreator(selectedCampaign, cc.creator.id)}><Trash2 size={10} /></button>
+                                                    <button
+                                                        className="btn btn-sm btn-secondary"
+                                                        onClick={() => { setPitchModal({ creatorId: cc.creator.id, creatorName: cc.creator.name }); setPitchResult(null); }}
+                                                        title="Generate Pitch"
+                                                    >
+                                                        <Sparkles size={11} />
+                                                    </button>
+                                                    {cc.creator.telegram && (
+                                                        <a href={cc.creator.telegram} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary" title="Telegram">
+                                                            <Send size={11} />
+                                                        </a>
+                                                    )}
+                                                    {cc.creator.twitter && (
+                                                        <a href={cc.creator.twitter} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary" title="Twitter/X">
+                                                            <AtSign size={11} />
+                                                        </a>
+                                                    )}
+                                                    <button
+                                                        className="btn btn-sm btn-danger"
+                                                        onClick={() => removeCreator(selectedCampaign, cc.creator.id)}
+                                                        title="Remove"
+                                                    >
+                                                        <Trash2 size={11} />
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
-                                        {items.length === 0 && <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)', fontSize: 12 }}>No creators</div>}
+                                        {items.length === 0 && (
+                                            <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-muted)', fontSize: 12, borderRadius: 8, border: '1px dashed rgba(255,255,255,0.06)' }}>
+                                                No creators yet
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
                 )}
-            </div>
+
+                {/* Pitch Modal */}
+                {pitchModal && (
+                    <div className="modal-overlay" onClick={() => setPitchModal(null)}>
+                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+                            <h2 className="modal-title">
+                                <Sparkles size={18} style={{ color: '#c084fc' }} />
+                                Generate Outreach Pitch
+                            </h2>
+                            <p style={{ fontSize: 13.5, color: 'var(--text-muted)', marginBottom: 20 }}>
+                                Crafting a pitch for <strong style={{ color: 'white' }}>{pitchModal.creatorName}</strong>
+                            </p>
+
+                            <div className="settings-field">
+                                <label className="label">Tone</label>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    {(['professional', 'casual', 'friendly'] as const).map(t => (
+                                        <button
+                                            key={t}
+                                            className={`btn btn-sm ${pitchTone === t ? 'btn-primary' : 'btn-secondary'}`}
+                                            onClick={() => setPitchTone(t)}
+                                        >
+                                            {t === 'professional' ? '💼' : t === 'casual' ? '😎' : '😊'} {t.charAt(0).toUpperCase() + t.slice(1)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="settings-field">
+                                <label className="label">Product / Brand Info (optional)</label>
+                                <input
+                                    type="text"
+                                    className="input"
+                                    placeholder="e.g. DeFi wallet app for Gen Z users"
+                                    value={pitchProductInfo}
+                                    onChange={e => setPitchProductInfo(e.target.value)}
+                                />
+                            </div>
+
+                            <button
+                                className="btn btn-primary"
+                                style={{ width: '100%', marginBottom: 16 }}
+                                onClick={() => generatePitch(pitchModal.creatorId)}
+                                disabled={pitchLoading}
+                            >
+                                {pitchLoading ? <Loader2 size={15} className="loading-spinner" /> : <Sparkles size={15} />}
+                                {pitchLoading ? 'Generating...' : pitchResult ? 'Regenerate Pitch' : 'Generate Pitch'}
+                            </button>
+
+                            {pitchResult && (
+                                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', borderRadius: 12, padding: 16 }}>
+                                    <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Subject</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: 'white' }}>{pitchResult.subject}</div>
+                                    <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Message</div>
+                                    <div style={{ fontSize: 13.5, lineHeight: 1.7, whiteSpace: 'pre-wrap', color: '#94a3b8' }}>{pitchResult.pitch}</div>
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                                        <button className="btn btn-sm btn-secondary" onClick={copyPitch}>
+                                            {pitchCopied ? <Check size={12} /> : <Copy size={12} />}
+                                            {pitchCopied ? 'Copied!' : 'Copy'}
+                                        </button>
+                                        <button className="btn btn-sm btn-secondary" onClick={() => generatePitch(pitchModal.creatorId)} disabled={pitchLoading}>
+                                            <RefreshCw size={12} /> Regenerate
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+                                <button className="btn btn-secondary" onClick={() => setPitchModal(null)}>Close</button>
+                            </div>
+                        </div>
+                    </div>
+                )
+                }
+            </div >
         );
     }
 
+    // Campaigns List View
     return (
         <div className="page-container">
             <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -226,118 +390,135 @@ export default function CampaignsPage() {
                     <h1 className="page-title">Campaigns</h1>
                     <p className="page-subtitle">Manage your influencer outreach pipelines</p>
                 </div>
-                <button className="btn btn-primary" onClick={() => setShowCreate(true)}><Plus size={16} />New Campaign</button>
+                <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+                    <Plus size={15} /> New Campaign
+                </button>
             </div>
 
-            {loading ?
-                <div className="stats-grid">{[1, 2, 3].map(i => <div key={i} className="glass-card"><div className="skeleton" style={{ width: '60%', height: 20, marginBottom: 12 }} /><div className="skeleton" style={{ width: '40%', height: 14 }} /></div>)}</div>
-                : campaigns.length > 0 ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: 16 }}>
-                        {campaigns.map(c => (
-                            <div key={c.id} className="glass-card" style={{ cursor: 'pointer' }} onClick={() => loadDetail(c.id)}>
-                                <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
-                                    <h3 style={{ fontSize: 16, fontWeight: 700 }}>{c.name}</h3>
-                                    <div className="flex gap-2">
-                                        <span className={`badge ${c.status === 'active' ? 'engagement' : 'stale'}`}>{c.status}</span>
-                                        <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); deleteCampaign(c.id); }}><Trash2 size={14} /></button>
-                                    </div>
-                                </div>
-                                {c.description && <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>{c.description}</p>}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                                    {STAGES.map(s => <div key={s} className="creator-stat"><div className="creator-stat-value">{c.stageCounts?.[s] || 0}</div><div className="creator-stat-label">{s}</div></div>)}
-                                </div>
-                                <div className="flex items-center justify-between" style={{ marginTop: 14 }}>
-                                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}><Target size={12} style={{ display: 'inline', marginRight: 4 }} />{c.stageCounts?.total || 0} creators</span>
-                                    <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="empty-state">
-                        <div className="empty-state-icon"><Target size={48} /></div>
-                        <div className="empty-state-title">No Campaigns Yet</div>
-                        <div className="empty-state-desc">Create a campaign and add creators from <Link href="/discover" style={{ color: 'var(--accent-indigo)' }}>Discover</Link>.</div>
-                    </div>
-                )}
-
-            {showCreate && (
-                <div className="modal-overlay" onClick={() => setShowCreate(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
-                        <h2 className="modal-title">Create New Campaign</h2>
-                        <div className="settings-field"><label className="label">Campaign Name</label><input type="text" className="input" placeholder="e.g. MyPal Launch Q1" value={newName} onChange={e => setNewName(e.target.value)} autoFocus /></div>
-                        <div className="settings-field"><label className="label">Description</label><textarea className="input" placeholder="Campaign notes..." value={newDesc} onChange={e => setNewDesc(e.target.value)} rows={3} /></div>
-                        <div className="flex gap-2" style={{ marginTop: 20, justifyContent: 'flex-end' }}>
-                            <button className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={createCampaign} disabled={!newName.trim() || creating}>{creating ? <Loader2 size={14} /> : <Plus size={14} />}Create</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Pitch Modal */}
-            {pitchModal && (
-                <div className="modal-overlay" onClick={() => setPitchModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
-                        <h2 className="modal-title"><Sparkles size={16} style={{ display: 'inline', marginRight: 8 }} />Generate Outreach Pitch</h2>
-                        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>For <strong>{pitchModal.creatorName}</strong></p>
-
-                        <div className="settings-field">
-                            <label className="label">Tone</label>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                {(['professional', 'casual', 'friendly'] as const).map(t => (
-                                    <button
-                                        key={t}
-                                        className={`btn btn-sm ${pitchTone === t ? 'btn-primary' : 'btn-secondary'}`}
-                                        onClick={() => setPitchTone(t)}
-                                    >
-                                        {t === 'professional' ? '💼' : t === 'casual' ? '😎' : '😊'} {t.charAt(0).toUpperCase() + t.slice(1)}
-                                    </button>
+            {/* Loading */}
+            {loading ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 14 }}>
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="glass-card">
+                            <div className="skeleton" style={{ width: '55%', height: 20, marginBottom: 12 }} />
+                            <div className="skeleton" style={{ width: '35%', height: 13, marginBottom: 20 }} />
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                                {[1, 2, 3, 4].map(j => (
+                                    <div key={j} className="skeleton" style={{ height: 56, borderRadius: 8 }} />
                                 ))}
                             </div>
                         </div>
-
-                        <div className="settings-field">
-                            <label className="label">Product/Brand Info (optional)</label>
-                            <input
-                                type="text"
-                                className="input"
-                                placeholder="e.g. DeFi wallet app for Gen Z users"
-                                value={pitchProductInfo}
-                                onChange={e => setPitchProductInfo(e.target.value)}
-                            />
-                        </div>
-
-                        <button
-                            className="btn btn-primary"
-                            style={{ width: '100%', marginBottom: 16 }}
-                            onClick={() => generatePitch(pitchModal.creatorId)}
-                            disabled={pitchLoading}
+                    ))}
+                </div>
+            ) : campaigns.length > 0 ? (
+                <div className="campaign-grid">
+                    {campaigns.map(c => (
+                        <div
+                            key={c.id}
+                            className="glass-card campaign-card"
+                            onClick={() => loadDetail(c.id)}
                         >
-                            {pitchLoading ? <Loader2 size={14} className="loading-spinner" /> : <Sparkles size={14} />}
-                            {pitchLoading ? 'Generating...' : pitchResult ? 'Regenerate' : 'Generate Pitch'}
-                        </button>
-
-                        {pitchResult && (
-                            <div style={{ background: 'var(--bg-glass)', borderRadius: 12, padding: 16 }}>
-                                <div style={{ fontSize: 12, color: 'var(--accent-indigo)', fontWeight: 600, marginBottom: 4 }}>Subject</div>
-                                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>{pitchResult.subject}</div>
-                                <div style={{ fontSize: 12, color: 'var(--accent-indigo)', fontWeight: 600, marginBottom: 4 }}>Message</div>
-                                <div style={{ fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{pitchResult.pitch}</div>
-                                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                                    <button className="btn btn-sm btn-secondary" onClick={copyPitch}>
-                                        {pitchCopied ? <Check size={12} /> : <Copy size={12} />}
-                                        {pitchCopied ? 'Copied!' : 'Copy'}
-                                    </button>
-                                    <button className="btn btn-sm btn-secondary" onClick={() => generatePitch(pitchModal.creatorId)} disabled={pitchLoading}>
-                                        <RefreshCw size={12} /> Regenerate
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px 0', color: 'white', letterSpacing: '-0.02em' }}>
+                                        {c.name}
+                                    </h3>
+                                    {c.description && (
+                                        <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 0 12px 0', lineHeight: 1.5 }}>
+                                            {c.description}
+                                        </p>
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', gap: 6, marginLeft: 10, flexShrink: 0 }}>
+                                    <span className={`badge ${c.status === 'active' ? 'engagement' : 'stale'}`}>{c.status}</span>
+                                    <button
+                                        className="btn btn-ghost btn-sm"
+                                        style={{ padding: '4px 5px', color: '#f87171' }}
+                                        onClick={e => { e.stopPropagation(); deleteCampaign(c.id); }}
+                                        title="Delete campaign"
+                                    >
+                                        <Trash2 size={13} />
                                     </button>
                                 </div>
                             </div>
-                        )}
 
-                        <div className="flex gap-2" style={{ marginTop: 16, justifyContent: 'flex-end' }}>
-                            <button className="btn btn-secondary" onClick={() => setPitchModal(null)}>Close</button>
+                            {/* Stage Pills */}
+                            <div className="campaign-stage-pills">
+                                {STAGES.map(s => (
+                                    <div key={s} className="campaign-stage-pill">
+                                        <div className="campaign-stage-pill-value">{c.stageCounts?.[s] || 0}</div>
+                                        <div className="campaign-stage-pill-label">{s}</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 }}>
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <Target size={12} />
+                                    {c.stageCounts?.total || 0} creators total
+                                </span>
+                                <span style={{ fontSize: 12, color: '#818cf8', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    View Pipeline <ChevronRight size={13} />
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="empty-state">
+                    <div className="empty-state-icon">
+                        <Target size={30} />
+                    </div>
+                    <div className="empty-state-title">No Campaigns Yet</div>
+                    <div className="empty-state-desc">
+                        Create a campaign and add creators from{' '}
+                        <Link href="/discover" style={{ color: '#818cf8' }}>Discover</Link>.
+                    </div>
+                    <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => setShowCreate(true)}>
+                        <Plus size={15} /> Create Campaign
+                    </button>
+                </div>
+            )}
+
+            {/* Create Modal */}
+            {showCreate && (
+                <div className="modal-overlay" onClick={() => setShowCreate(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()}>
+                        <h2 className="modal-title">
+                            <Plus size={18} /> Create New Campaign
+                        </h2>
+                        <div className="settings-field">
+                            <label className="label">Campaign Name</label>
+                            <input
+                                type="text"
+                                className="input"
+                                placeholder="e.g. MyPal Launch Q1"
+                                value={newName}
+                                onChange={e => setNewName(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+                        <div className="settings-field">
+                            <label className="label">Description (optional)</label>
+                            <textarea
+                                className="input"
+                                placeholder="Campaign goals, target audience, notes..."
+                                value={newDesc}
+                                onChange={e => setNewDesc(e.target.value)}
+                                rows={3}
+                                style={{ resize: 'vertical' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+                            <button className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={createCampaign}
+                                disabled={!newName.trim() || creating}
+                            >
+                                {creating ? <Loader2 size={14} className="loading-spinner" /> : <Plus size={14} />}
+                                Create Campaign
+                            </button>
                         </div>
                     </div>
                 </div>

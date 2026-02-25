@@ -7,20 +7,22 @@ import {
     SlidersHorizontal,
     Users,
     Eye,
-    TrendingUp,
     Star,
     MessageCircle,
     AtSign,
     Mail,
     Send,
     Plus,
-    ExternalLink,
     Loader2,
     Download,
     Facebook,
     MessageSquare,
     Globe,
     Youtube,
+    X,
+    ChevronDown,
+    Database,
+    Sparkles,
 } from 'lucide-react';
 
 interface Creator {
@@ -46,59 +48,80 @@ interface Creator {
     custom_url: string | null;
 }
 
+const COUNTRIES = [
+    { name: 'All Countries', code: '' },
+    { name: 'India', code: 'IN' },
+    { name: 'Pakistan', code: 'PK' },
+    { name: 'Bangladesh', code: 'BD' },
+    { name: 'Indonesia', code: 'ID' },
+    { name: 'Vietnam', code: 'VN' },
+    { name: 'Thailand', code: 'TH' },
+    { name: 'Philippines', code: 'PH' },
+    { name: 'Japan', code: 'JP' },
+    { name: 'South Korea', code: 'KR' },
+    { name: 'Singapore', code: 'SG' },
+    { name: 'Malaysia', code: 'MY' },
+    { name: 'Sri Lanka', code: 'LK' },
+    { name: 'Nepal', code: 'NP' },
+    { name: 'Turkey', code: 'TR' },
+    { name: 'United Arab Emirates', code: 'AE' },
+    { name: 'Saudi Arabia', code: 'SA' },
+    { name: 'Uzbekistan', code: 'UZ' },
+    { name: 'Kazakhstan', code: 'KZ' },
+    { name: 'Israel', code: 'IL' },
+    { name: 'Taiwan', code: 'TW' },
+    { name: 'Hong Kong', code: 'HK' },
+    { name: 'China', code: 'CN' },
+    { name: 'United States', code: 'US' },
+    { name: 'United Kingdom', code: 'GB' },
+    { name: 'Canada', code: 'CA' },
+];
+
+function formatNumber(num: number): string {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${Math.floor((num / 1000) * 10) / 10}K`;
+    return num.toLocaleString();
+}
+
+function getScoreClass(score: number): string {
+    if (score >= 70) return 'high';
+    if (score >= 40) return 'medium';
+    return 'low';
+}
+
+function getBadges(creator: Creator): Array<{ text: string; className: string }> {
+    const badges: Array<{ text: string; className: string }> = [];
+    if (creator.engagement_rate >= 5) badges.push({ text: 'High Engagement', className: 'engagement' });
+    if (creator.subscribers <= 10000) badges.push({ text: 'Micro-Tier', className: 'micro' });
+    if (creator.subscribers > 10000 && creator.subscribers <= 100000)
+        badges.push({ text: 'Mid-Tier', className: 'active' });
+    if (creator.telegram || creator.twitter) badges.push({ text: 'Has Socials', className: 'active' });
+    return badges;
+}
+
 export default function DiscoverPage() {
     const [query, setQuery] = useState('');
     const [minSubs, setMinSubs] = useState('');
     const [maxSubs, setMaxSubs] = useState('');
-    const [minViews, setMinViews] = useState('');
+    const [selectedCountry, setSelectedCountry] = useState('');
+    const [countrySearch, setCountrySearch] = useState('');
     const [results, setResults] = useState<Creator[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searched, setSearched] = useState(false);
     const [showFilters, setShowFilters] = useState(true);
     const [searchSteps, setSearchSteps] = useState<Array<{ step: string; message: string; done: boolean }>>([]);
-    const [selectedCountry, setSelectedCountry] = useState('');
-    const [countrySearch, setCountrySearch] = useState('');
 
-    const countries = [
-        { name: 'All Countries', code: '' },
-        { name: 'India', code: 'IN' },
-        { name: 'Pakistan', code: 'PK' },
-        { name: 'Bangladesh', code: 'BD' },
-        { name: 'Indonesia', code: 'ID' },
-        { name: 'Vietnam', code: 'VN' },
-        { name: 'Thailand', code: 'TH' },
-        { name: 'Philippines', code: 'PH' },
-        { name: 'Japan', code: 'JP' },
-        { name: 'South Korea', code: 'KR' },
-        { name: 'Singapore', code: 'SG' },
-        { name: 'Malaysia', code: 'MY' },
-        { name: 'Sri Lanka', code: 'LK' },
-        { name: 'Nepal', code: 'NP' },
-        { name: 'Turkey', code: 'TR' },
-        { name: 'United Arab Emirates', code: 'AE' },
-        { name: 'Saudi Arabia', code: 'SA' },
-        { name: 'Uzbekistan', code: 'UZ' },
-        { name: 'Kazakhstan', code: 'KZ' },
-        { name: 'Israel', code: 'IL' },
-        { name: 'Taiwan', code: 'TW' },
-        { name: 'Hong Kong', code: 'HK' },
-        { name: 'China', code: 'CN' },
-        { name: 'United States', code: 'US' },
-        { name: 'United Kingdom', code: 'GB' },
-        { name: 'Canada', code: 'CA' },
-    ];
-
-    const filteredCountries = countries.filter(c =>
-        c.name.toLowerCase().includes(countrySearch.toLowerCase())
-    );
-
-    // Campaign modal state
+    // Campaign modal
     const [showCampaignModal, setShowCampaignModal] = useState(false);
     const [selectedCreators, setSelectedCreators] = useState<string[]>([]);
     const [campaigns, setCampaigns] = useState<Array<{ id: string; name: string }>>([]);
     const [selectedCampaign, setSelectedCampaign] = useState('');
     const [newCampaignName, setNewCampaignName] = useState('');
+
+    const filteredCountries = COUNTRIES.filter(c =>
+        c.name.toLowerCase().includes(countrySearch.toLowerCase())
+    );
 
     async function handleSearch(e: React.FormEvent) {
         e.preventDefault();
@@ -113,7 +136,6 @@ export default function DiscoverPage() {
         const params = new URLSearchParams({ query: query.trim() });
         if (minSubs) params.set('minSubs', minSubs);
         if (maxSubs) params.set('maxSubs', maxSubs);
-        if (minViews) params.set('minViews', minViews);
         if (selectedCountry) params.set('country', selectedCountry);
 
         try {
@@ -140,13 +162,11 @@ export default function DiscoverPage() {
                     return;
                 }
 
-                // Update steps
                 setSearchSteps(prev => {
                     const existing = prev.find(s => s.step === data.step);
                     if (existing) {
                         return prev.map(s => s.step === data.step ? { ...s, message: data.message } : s);
                     }
-                    // Mark previous steps as done
                     const updated = prev.map(s => ({ ...s, done: true }));
                     return [...updated, { step: data.step, message: data.message, done: false }];
                 });
@@ -194,9 +214,7 @@ export default function DiscoverPage() {
 
     function toggleCreatorSelection(creatorId: string) {
         setSelectedCreators((prev) =>
-            prev.includes(creatorId)
-                ? prev.filter((id) => id !== creatorId)
-                : [...prev, creatorId]
+            prev.includes(creatorId) ? prev.filter((id) => id !== creatorId) : [...prev, creatorId]
         );
     }
 
@@ -205,16 +223,12 @@ export default function DiscoverPage() {
             const res = await fetch('/api/campaigns');
             const data = await res.json();
             setCampaigns(data.campaigns || []);
-        } catch (err) {
-            console.error(err);
-        }
+        } catch (err) { console.error(err); }
         setShowCampaignModal(true);
     }
 
     async function addToCampaign() {
         let campaignId = selectedCampaign;
-
-        // Create new campaign if needed
         if (newCampaignName) {
             const res = await fetch('/api/campaigns', {
                 method: 'POST',
@@ -224,59 +238,39 @@ export default function DiscoverPage() {
             const data = await res.json();
             campaignId = data.campaign.id;
         }
-
         if (!campaignId) return;
-
-        // Add selected creators
         await fetch(`/api/campaigns/${campaignId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ addCreators: selectedCreators }),
         });
-
         setShowCampaignModal(false);
         setSelectedCreators([]);
         setNewCampaignName('');
         setSelectedCampaign('');
     }
 
-    const formatNumber = (num: number): string => {
-        if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-        if (num >= 1000) {
-            const rounded = Math.floor((num / 1000) * 10) / 10;
-            return `${rounded}K`;
-        }
-        return num.toLocaleString();
-    };
-
-    function getScoreClass(score: number): string {
-        if (score >= 70) return 'high';
-        if (score >= 40) return 'medium';
-        return 'low';
-    }
-
-    function getBadges(creator: Creator): Array<{ text: string; className: string }> {
-        const badges: Array<{ text: string; className: string }> = [];
-        if (creator.engagement_rate >= 5) badges.push({ text: 'High Engagement', className: 'engagement' });
-        if (creator.subscribers <= 10000) badges.push({ text: 'Micro-Tier', className: 'micro' });
-        if (creator.subscribers > 10000 && creator.subscribers <= 100000)
-            badges.push({ text: 'Mid-Tier', className: 'active' });
-        if (creator.telegram || creator.twitter) badges.push({ text: 'Has Socials', className: 'active' });
-        return badges;
-    }
-
     return (
         <div className="page-container">
-            <div className="page-header">
-                <h1 className="page-title">Discovery Engine</h1>
-                <p className="page-subtitle">Search YouTube for high-ROI micro-influencers</p>
+            {/* Page Header */}
+            <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div>
+                    <h1 className="page-title">Discovery Engine</h1>
+                    <p className="page-subtitle">Search YouTube for high-ROI micro-influencers</p>
+                </div>
+                {selectedCreators.length > 0 && (
+                    <button className="btn btn-primary" onClick={openCampaignModal}>
+                        <Plus size={15} />
+                        Add {selectedCreators.length} to Campaign
+                    </button>
+                )}
             </div>
 
             {/* Search Bar */}
-            <form onSubmit={handleSearch} style={{ marginBottom: 24 }}>
-                <div style={{ display: 'flex', gap: 12 }}>
+            <form onSubmit={handleSearch} style={{ marginBottom: 20 }}>
+                <div style={{ display: 'flex', gap: 10 }}>
                     <div className="input-group" style={{ flex: 1 }}>
-                        <Search size={18} className="input-icon" />
+                        <Search size={17} className="input-icon" />
                         <input
                             type="text"
                             className="input search-input-lg input-with-icon"
@@ -285,8 +279,13 @@ export default function DiscoverPage() {
                             onChange={(e) => setQuery(e.target.value)}
                         />
                     </div>
-                    <button type="submit" className="btn btn-primary" disabled={loading || !query.trim()}>
-                        {loading ? <Loader2 size={16} className="loading-spinner" /> : <Search size={16} />}
+                    <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={loading || !query.trim()}
+                        style={{ minWidth: 148 }}
+                    >
+                        {loading ? <Loader2 size={15} className="loading-spinner" /> : <Search size={15} />}
                         {loading ? 'Searching...' : 'Search YouTube'}
                     </button>
                     <button
@@ -294,16 +293,19 @@ export default function DiscoverPage() {
                         className="btn btn-secondary"
                         onClick={loadFromDatabase}
                         disabled={loading}
+                        style={{ minWidth: 130 }}
                     >
+                        <Database size={14} />
                         Load from DB
                     </button>
                     <button
                         type="button"
-                        className="btn btn-ghost btn-icon"
+                        className={`btn btn-secondary btn-icon ${showFilters ? 'btn-primary' : ''}`}
                         onClick={() => setShowFilters(!showFilters)}
                         title="Toggle Filters"
+                        style={{ background: showFilters ? 'rgba(99,102,241,0.15)' : undefined, borderColor: showFilters ? 'rgba(99,102,241,0.4)' : undefined }}
                     >
-                        <SlidersHorizontal size={18} />
+                        <SlidersHorizontal size={17} style={{ color: showFilters ? '#818cf8' : undefined }} />
                     </button>
                 </div>
             </form>
@@ -312,12 +314,24 @@ export default function DiscoverPage() {
                 {/* Filter Sidebar */}
                 {showFilters && (
                     <div className="discover-filters">
-                        <div className="glass-card">
-                            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>
-                                <SlidersHorizontal size={14} style={{ display: 'inline', marginRight: 8 }} />
-                                Filters
-                            </h3>
+                        <div className="glass-card" style={{ padding: 18 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 7, color: 'white' }}>
+                                    <SlidersHorizontal size={14} style={{ color: '#818cf8' }} />
+                                    Filters
+                                </h3>
+                                {(minSubs || maxSubs || selectedCountry) && (
+                                    <button
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={() => { setMinSubs(''); setMaxSubs(''); setSelectedCountry(''); setCountrySearch(''); }}
+                                        style={{ fontSize: 11 }}
+                                    >
+                                        <X size={11} /> Clear
+                                    </button>
+                                )}
+                            </div>
 
+                            {/* Subscriber Range */}
                             <div className="filter-section">
                                 <div className="filter-section-title">Subscriber Range</div>
                                 <div className="range-inputs">
@@ -325,7 +339,7 @@ export default function DiscoverPage() {
                                         <label className="label">Min</label>
                                         <input
                                             type="number"
-                                            className="input"
+                                            className="input input-sm"
                                             placeholder="0"
                                             value={minSubs}
                                             onChange={(e) => setMinSubs(e.target.value)}
@@ -335,7 +349,7 @@ export default function DiscoverPage() {
                                         <label className="label">Max</label>
                                         <input
                                             type="number"
-                                            className="input"
+                                            className="input input-sm"
                                             placeholder="∞"
                                             value={maxSubs}
                                             onChange={(e) => setMaxSubs(e.target.value)}
@@ -344,11 +358,12 @@ export default function DiscoverPage() {
                                 </div>
                             </div>
 
+                            {/* Country */}
                             <div className="filter-section">
                                 <div className="filter-section-title">Country</div>
-                                <div className="country-filter-container" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    <div className="input-group" style={{ marginBottom: 0 }}>
-                                        <Search size={14} className="input-icon" />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <div className="input-group">
+                                        <Search size={13} className="input-icon" />
                                         <input
                                             type="text"
                                             className="input input-sm input-with-icon"
@@ -363,318 +378,273 @@ export default function DiscoverPage() {
                                         onChange={(e) => {
                                             const code = e.target.value;
                                             setSelectedCountry(code);
-                                            const country = countries.find(c => c.code === code);
-                                            if (country && country.code) {
-                                                setCountrySearch(country.name);
-                                            } else {
-                                                setCountrySearch('');
-                                            }
+                                            const country = COUNTRIES.find(c => c.code === code);
+                                            setCountrySearch(country && country.code ? country.name : '');
                                         }}
-                                        style={{
-                                            height: filteredCountries.length > 1 ? '120px' : '40px',
-                                            cursor: 'pointer'
-                                        }}
-                                        size={filteredCountries.length > 1 ? 4 : 1}
+                                        size={Math.min(filteredCountries.length, 5)}
+                                        style={{ height: 'auto', cursor: 'pointer', backgroundImage: 'none', paddingRight: '10px' }}
                                     >
                                         {filteredCountries.map((c) => (
-                                            <option key={c.code} value={c.code} style={{ padding: '4px 8px' }}>
-                                                {c.name}
-                                            </option>
+                                            <option key={c.code} value={c.code}>{c.name}</option>
                                         ))}
                                     </select>
                                 </div>
+                                {selectedCountry && (
+                                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                        <span className="badge active" style={{ fontSize: 11 }}>
+                                            {COUNTRIES.find(c => c.code === selectedCountry)?.name || selectedCountry}
+                                        </span>
+                                        <button className="btn btn-ghost btn-sm" style={{ padding: '2px 5px', fontSize: 10 }}
+                                            onClick={() => { setSelectedCountry(''); setCountrySearch(''); }}>
+                                            <X size={10} />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
-                            {selectedCreators.length > 0 && (
-                                <div style={{ marginTop: 16 }}>
-                                    <button
-                                        className="btn btn-primary"
-                                        style={{ width: '100%' }}
-                                        onClick={openCampaignModal}
-                                    >
-                                        <Plus size={14} />
-                                        Add {selectedCreators.length} to Campaign
-                                    </button>
+                            {/* Quick Filters */}
+                            <div className="filter-section">
+                                <div className="filter-section-title">Quick Filters</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                    {[
+                                        { label: 'Micro (0–10K)', min: '0', max: '10000' },
+                                        { label: 'Mid-Tier (10K–100K)', min: '10000', max: '100000' },
+                                        { label: 'Macro (100K+)', min: '100000', max: '' },
+                                    ].map(preset => (
+                                        <button
+                                            key={preset.label}
+                                            className="btn btn-ghost btn-sm"
+                                            style={{
+                                                justifyContent: 'flex-start', fontSize: 12,
+                                                background: minSubs === preset.min && maxSubs === preset.max ? 'rgba(99,102,241,0.1)' : undefined,
+                                                color: minSubs === preset.min && maxSubs === preset.max ? '#818cf8' : undefined,
+                                            }}
+                                            onClick={() => { setMinSubs(preset.min); setMaxSubs(preset.max); }}
+                                        >
+                                            {preset.label}
+                                        </button>
+                                    ))}
                                 </div>
-                            )}
+                            </div>
                         </div>
                     </div>
                 )}
 
                 {/* Results */}
                 <div className="discover-results">
-                    {error && (
-                        <div className="glass-card" style={{ textAlign: 'center', padding: 40, marginBottom: 16 }}>
-                            <p style={{ color: 'var(--accent-amber)', fontSize: 14 }}>{error}</p>
+                    {/* Error State */}
+                    {error && !loading && (
+                        <div style={{
+                            marginBottom: 16, padding: '14px 18px',
+                            background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
+                            borderRadius: 12, display: 'flex', alignItems: 'center', gap: 10
+                        }}>
+                            <Sparkles size={15} style={{ color: 'var(--accent-amber)', flexShrink: 0 }} />
+                            <p style={{ color: 'var(--accent-amber)', fontSize: 14, margin: 0 }}>{error}</p>
                         </div>
                     )}
 
+                    {/* Loading / Progress */}
                     {loading && (
-                        <div className="glass-card" style={{ padding: 32 }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div className="glass-card" style={{ padding: 28 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+                                <Loader2 size={16} className="loading-spinner" style={{ color: '#818cf8' }} />
+                                <span style={{ fontSize: 14, fontWeight: 600, color: 'white' }}>
+                                    Searching YouTube...
+                                </span>
+                            </div>
+                            <div className="loading-steps">
                                 {searchSteps.map((s, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                        <div style={{
-                                            width: 24, height: 24, borderRadius: '50%',
-                                            background: s.done ? 'var(--accent-emerald)' : 'var(--accent-indigo)',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: 12, color: 'white', flexShrink: 0,
-                                        }}>
+                                    <div key={i} className="loading-step">
+                                        <div className={`loading-step-dot ${s.done ? 'done' : 'active'}`}>
                                             {s.done ? '✓' : <Loader2 size={12} className="loading-spinner" />}
                                         </div>
-                                        <span style={{ fontSize: 14, color: s.done ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                                        <span style={{ fontSize: 13.5, color: s.done ? 'var(--text-muted)' : 'var(--text-primary)' }}>
                                             {s.message}
                                         </span>
                                     </div>
                                 ))}
                                 {searchSteps.length === 0 && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                        <Loader2 size={20} className="loading-spinner" style={{ color: 'var(--accent-indigo)' }} />
-                                        <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>Starting search pipeline...</span>
+                                    <div className="loading-step">
+                                        <div className="loading-step-dot active">
+                                            <Loader2 size={12} className="loading-spinner" />
+                                        </div>
+                                        <span style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>
+                                            Starting search pipeline...
+                                        </span>
                                     </div>
                                 )}
                             </div>
                         </div>
                     )}
 
+                    {/* Results Grid */}
                     {!loading && results.length > 0 && (
                         <>
-                            <div className="flex items-center justify-between mb-4">
-                                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                                    {results.length} creators found
+                            <div className="results-bar">
+                                <span className="results-count">
+                                    Found <strong>{results.length}</strong> creators
                                 </span>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                     {selectedCreators.length > 0 && (
-                                        <span style={{ fontSize: 13, color: 'var(--accent-indigo)' }}>
-                                            {selectedCreators.length} selected
-                                        </span>
+                                        <span className="badge active">{selectedCreators.length} selected</span>
                                     )}
                                     <button className="btn btn-sm btn-secondary" onClick={() => window.open('/api/export', '_blank')}>
-                                        <Download size={12} /> Export CSV
+                                        <Download size={12} />
+                                        Export CSV
                                     </button>
                                 </div>
                             </div>
 
                             <div className="creator-results-grid">
-                                {results.map((creator, index) => (
-                                    <div
-                                        key={creator.youtube_id || index}
-                                        className="creator-card"
-                                        style={{
-                                            borderColor: selectedCreators.includes(creator.id || creator.youtube_id)
-                                                ? 'var(--accent-indigo)'
-                                                : undefined,
-                                        }}
-                                    >
-                                        {/* Selection checkbox */}
-                                        {creator.id && (
-                                            <div
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: 12,
-                                                    right: 12,
-                                                    cursor: 'pointer',
-                                                    zIndex: 2,
-                                                }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    toggleCreatorSelection(creator.id!);
-                                                }}
-                                            >
-                                                <div
-                                                    style={{
-                                                        width: 20,
-                                                        height: 20,
-                                                        borderRadius: 6,
-                                                        border: `2px solid ${selectedCreators.includes(creator.id)
-                                                            ? 'var(--accent-indigo)'
-                                                            : 'var(--border-glass)'
-                                                            }`,
-                                                        background: selectedCreators.includes(creator.id)
-                                                            ? 'var(--accent-indigo)'
-                                                            : 'transparent',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        fontSize: 12,
-                                                        color: 'white',
-                                                        transition: 'all 0.2s ease',
-                                                    }}
-                                                >
-                                                    {selectedCreators.includes(creator.id) && '✓'}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Card Header */}
-                                        <div className="creator-card-header">
-                                            {creator.profile_pic_url ? (
-                                                <img
-                                                    src={creator.profile_pic_url}
-                                                    alt={creator.name}
-                                                    className="creator-avatar"
-                                                />
-                                            ) : (
-                                                <div
-                                                    className="creator-avatar"
-                                                    style={{
-                                                        background: 'var(--bg-glass)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                    }}
-                                                >
-                                                    <Users size={24} style={{ color: 'var(--text-muted)' }} />
-                                                </div>
-                                            )}
-                                            <div className="creator-info">
-                                                <div className="creator-name">{creator.name}</div>
-                                                <div className="creator-handle" style={{ color: 'var(--accent-indigo)', fontWeight: 500 }}>
-                                                    {creator.country ? `📍 ${creator.country}` : 'Global Channel'}
-                                                </div>
-                                            </div>
-                                            <div className={`creator-score ${getScoreClass(creator.priority_score)}`}>
-                                                {creator.priority_score}
-                                            </div>
-                                        </div>
-
-                                        {/* Badges */}
-                                        <div className="creator-badges">
-                                            {getBadges(creator).map((badge, i) => (
-                                                <span key={i} className={`badge ${badge.className}`}>
-                                                    {badge.text}
-                                                </span>
-                                            ))}
-                                        </div>
-
-                                        {/* Stats */}
-                                        <div className="creator-stats">
-                                            <div className="creator-stat">
-                                                <div className="creator-stat-value" style={{ color: 'var(--text-primary)' }}>
-                                                    {formatNumber(creator.subscribers)}
-                                                </div>
-                                                <div className="creator-stat-label">Subscribers</div>
-                                            </div>
-                                            <div className="creator-stat">
-                                                <div className="creator-stat-value">
-                                                    {formatNumber(creator.avg_views)}
-                                                </div>
-                                                <div className="creator-stat-label">Avg Views</div>
-                                            </div>
-                                            <div className="creator-stat">
-                                                <div className="creator-stat-value">
-                                                    {creator.video_count}
-                                                </div>
-                                                <div className="creator-stat-label">Videos</div>
-                                            </div>
-                                        </div>
-
-                                        {/* Action Buttons */}
-                                        <div className="creator-actions">
+                                {results.map((creator, index) => {
+                                    const isSelected = selectedCreators.includes(creator.id || creator.youtube_id);
+                                    return (
+                                        <div
+                                            key={creator.youtube_id || index}
+                                            className="creator-card"
+                                            style={{
+                                                borderColor: isSelected ? 'rgba(99,102,241,0.55)' : undefined,
+                                                boxShadow: isSelected ? '0 0 0 2px rgba(99,102,241,0.15)' : undefined,
+                                            }}
+                                        >
+                                            {/* Checkbox */}
                                             {creator.id && (
-                                                <Link
-                                                    href={`/creators/${creator.id}`}
-                                                    className="btn btn-sm btn-secondary"
-                                                    onClick={(e) => e.stopPropagation()}
+                                                <div
+                                                    className="checkbox-container"
+                                                    onClick={(e) => { e.stopPropagation(); toggleCreatorSelection(creator.id!); }}
                                                 >
-                                                    <Eye size={12} />
-                                                    Profile
-                                                </Link>
+                                                    <div className={`checkbox ${isSelected ? 'checked' : ''}`}>
+                                                        {isSelected && '✓'}
+                                                    </div>
+                                                </div>
                                             )}
-                                            {creator.telegram && (
+
+                                            {/* Header */}
+                                            <div className="creator-card-header">
+                                                {creator.profile_pic_url ? (
+                                                    <img src={creator.profile_pic_url} alt={creator.name} className="creator-avatar" />
+                                                ) : (
+                                                    <div className="creator-avatar" style={{ background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Users size={22} style={{ color: 'var(--text-muted)' }} />
+                                                    </div>
+                                                )}
+                                                <div className="creator-info">
+                                                    <div className="creator-name">{creator.name}</div>
+                                                    <div className="creator-handle" style={{ color: '#818cf8', fontWeight: 500 }}>
+                                                        {creator.country ? `📍 ${creator.country}` : 'Global Channel'}
+                                                    </div>
+                                                </div>
+                                                <div className={`creator-score ${getScoreClass(creator.priority_score)}`}>
+                                                    {creator.priority_score}
+                                                </div>
+                                            </div>
+
+                                            {/* Badges */}
+                                            {getBadges(creator).length > 0 && (
+                                                <div className="creator-badges">
+                                                    {getBadges(creator).map((badge, i) => (
+                                                        <span key={i} className={`badge ${badge.className}`}>
+                                                            {badge.text}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Stats */}
+                                            <div className="creator-stats">
+                                                <div className="creator-stat">
+                                                    <div className="creator-stat-value">{formatNumber(creator.subscribers)}</div>
+                                                    <div className="creator-stat-label">Subscribers</div>
+                                                </div>
+                                                <div className="creator-stat">
+                                                    <div className="creator-stat-value">{formatNumber(creator.avg_views)}</div>
+                                                    <div className="creator-stat-label">Avg Views</div>
+                                                </div>
+                                                <div className="creator-stat">
+                                                    <div className="creator-stat-value">{creator.engagement_rate.toFixed(1)}%</div>
+                                                    <div className="creator-stat-label">Engagement</div>
+                                                </div>
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div className="creator-actions">
+                                                {creator.id && (
+                                                    <Link href={`/creators/${creator.id}`} className="btn btn-sm btn-secondary" onClick={(e) => e.stopPropagation()}>
+                                                        <Eye size={12} />
+                                                        Profile
+                                                    </Link>
+                                                )}
                                                 <a
-                                                    href={creator.telegram}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
+                                                    href={creator.custom_url
+                                                        ? `https://www.youtube.com/${creator.custom_url.startsWith('@') ? creator.custom_url : '@' + creator.custom_url}`
+                                                        : `https://www.youtube.com/channel/${creator.youtube_id}`}
+                                                    target="_blank" rel="noopener noreferrer"
                                                     className="btn btn-sm btn-secondary"
                                                     onClick={(e) => e.stopPropagation()}
+                                                    title="YouTube Channel"
                                                 >
-                                                    <Send size={12} />
-                                                    TG
+                                                    <Youtube size={12} style={{ color: '#ef4444' }} />
                                                 </a>
-                                            )}
-                                            {creator.twitter && (
-                                                <a
-                                                    href={creator.twitter}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="btn btn-sm btn-secondary"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <AtSign size={12} />
-                                                    X
-                                                </a>
-                                            )}
-                                            {creator.email && (
-                                                <a
-                                                    href={`mailto:${creator.email}`}
-                                                    className="btn btn-sm btn-secondary"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <Mail size={12} />
-                                                </a>
-                                            )}
-                                            {creator.facebook && (
-                                                <a
-                                                    href={creator.facebook}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="btn btn-sm btn-secondary"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    title="Facebook"
-                                                >
-                                                    <Facebook size={12} />
-                                                </a>
-                                            )}
-                                            {creator.whatsapp && (
-                                                <a
-                                                    href={creator.whatsapp}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="btn btn-sm btn-secondary"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    title="WhatsApp"
-                                                >
-                                                    <MessageSquare size={12} />
-                                                </a>
-                                            )}
-                                            {creator.website && (
-                                                <a
-                                                    href={creator.website}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="btn btn-sm btn-secondary"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    title="Website"
-                                                >
-                                                    <Globe size={12} />
-                                                </a>
-                                            )}
-                                            <a
-                                                href={creator.custom_url ? `https://www.youtube.com/${creator.custom_url.startsWith('@') ? creator.custom_url : '@' + creator.custom_url}` : `https://www.youtube.com/channel/${creator.youtube_id}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="btn btn-sm btn-secondary"
-                                                onClick={(e) => e.stopPropagation()}
-                                                title="YouTube Channel"
-                                            >
-                                                <Youtube size={12} />
-                                            </a>
+                                                {creator.telegram && (
+                                                    <a href={creator.telegram} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary" onClick={(e) => e.stopPropagation()} title="Telegram">
+                                                        <Send size={12} style={{ color: '#22d3ee' }} />
+                                                    </a>
+                                                )}
+                                                {creator.twitter && (
+                                                    <a href={creator.twitter} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary" onClick={(e) => e.stopPropagation()} title="Twitter/X">
+                                                        <AtSign size={12} />
+                                                    </a>
+                                                )}
+                                                {creator.email && (
+                                                    <a href={`mailto:${creator.email}`} className="btn btn-sm btn-secondary" onClick={(e) => e.stopPropagation()} title="Email">
+                                                        <Mail size={12} style={{ color: '#34d399' }} />
+                                                    </a>
+                                                )}
+                                                {creator.facebook && (
+                                                    <a href={creator.facebook} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary" onClick={(e) => e.stopPropagation()} title="Facebook">
+                                                        <Facebook size={12} style={{ color: '#818cf8' }} />
+                                                    </a>
+                                                )}
+                                                {creator.whatsapp && (
+                                                    <a href={creator.whatsapp} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary" onClick={(e) => e.stopPropagation()} title="WhatsApp">
+                                                        <MessageSquare size={12} style={{ color: '#34d399' }} />
+                                                    </a>
+                                                )}
+                                                {creator.website && (
+                                                    <a href={creator.website} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary" onClick={(e) => e.stopPropagation()} title="Website">
+                                                        <Globe size={12} />
+                                                    </a>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </>
                     )}
 
+                    {/* Empty / Idle State */}
                     {!loading && !searched && results.length === 0 && (
                         <div className="empty-state">
                             <div className="empty-state-icon">
-                                <Search size={48} />
+                                <Search size={32} />
                             </div>
                             <div className="empty-state-title">Start Discovering Creators</div>
                             <div className="empty-state-desc">
-                                Enter a keyword and apply filters to scout YouTube creators. Results are enriched with social handles and scored automatically.
+                                Enter a keyword above and hit <strong style={{ color: 'white' }}>Search YouTube</strong> to scout creators.
+                                Results are enriched with social handles and scored automatically.
+                            </div>
+                            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                                <button className="btn btn-secondary btn-sm" onClick={() => { setQuery('Crypto India'); }}>
+                                    💡 Crypto India
+                                </button>
+                                <button className="btn btn-secondary btn-sm" onClick={() => { setQuery('Tech Unboxing'); }}>
+                                    📦 Tech Unboxing
+                                </button>
+                                <button className="btn btn-secondary btn-sm" onClick={() => { setQuery('Finance Tips'); }}>
+                                    💰 Finance Tips
+                                </button>
                             </div>
                         </div>
                     )}
@@ -685,50 +655,39 @@ export default function DiscoverPage() {
             {showCampaignModal && (
                 <div className="modal-overlay" onClick={() => setShowCampaignModal(false)}>
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="modal-title">Add to Campaign</h2>
+                        <h2 className="modal-title">
+                            <Plus size={18} /> Add to Campaign
+                        </h2>
 
                         {campaigns.length > 0 && (
                             <div className="settings-field">
-                                <label className="label">Existing Campaign</label>
+                                <label className="label">Select Existing Campaign</label>
                                 <select
                                     className="select input"
                                     value={selectedCampaign}
-                                    onChange={(e) => {
-                                        setSelectedCampaign(e.target.value);
-                                        setNewCampaignName('');
-                                    }}
+                                    onChange={(e) => { setSelectedCampaign(e.target.value); setNewCampaignName(''); }}
                                 >
-                                    <option value="">Select a campaign...</option>
+                                    <option value="">Choose a campaign...</option>
                                     {campaigns.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.name}
-                                        </option>
+                                        <option key={c.id} value={c.id}>{c.name}</option>
                                     ))}
                                 </select>
                             </div>
                         )}
 
                         <div className="settings-field">
-                            <label className="label">
-                                {campaigns.length > 0 ? 'Or Create New Campaign' : 'Campaign Name'}
-                            </label>
+                            <label className="label">{campaigns.length > 0 ? 'Or Create New Campaign' : 'Campaign Name'}</label>
                             <input
                                 type="text"
                                 className="input"
                                 placeholder="e.g. MyPal Launch Q1"
                                 value={newCampaignName}
-                                onChange={(e) => {
-                                    setNewCampaignName(e.target.value);
-                                    setSelectedCampaign('');
-                                }}
+                                onChange={(e) => { setNewCampaignName(e.target.value); setSelectedCampaign(''); }}
                             />
                         </div>
 
-                        <div className="flex gap-2" style={{ marginTop: 20, justifyContent: 'flex-end' }}>
-                            <button
-                                className="btn btn-secondary"
-                                onClick={() => setShowCampaignModal(false)}
-                            >
+                        <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+                            <button className="btn btn-secondary" onClick={() => setShowCampaignModal(false)}>
                                 Cancel
                             </button>
                             <button
