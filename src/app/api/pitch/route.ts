@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase-server';
 import { generatePitch } from '@/lib/openai';
 
 export async function POST(request: NextRequest) {
     try {
+        const supabase = await createSupabaseServerClient();
+        const sessionResult = await supabase.auth.getSession();
+        const session = sessionResult.data.session;
+
+        if (!session) {
+            return NextResponse.json({ error: 'Unauthorized. Please log in.' }, { status: 401 });
+        }
+
         const body = await request.json();
         const { creatorId, campaignId, tone = 'friendly', productInfo } = body;
 
@@ -26,18 +34,25 @@ export async function POST(request: NextRequest) {
         let campaignName: string | undefined;
         if (campaignId) {
             const { data: campaign } = await supabase
-                .from('campaigns')
-                .select('name')
-                .eq('id', campaignId)
-                .single();
+                .from('campaigns').select('name').eq('id', campaignId).single();
             campaignName = campaign?.name;
         }
 
-        const result = await generatePitch({
-            creator,
-            campaignName,
-            tone,
-            productInfo,
+        // Fetch user's OpenAI key
+        const serviceClient = createSupabaseServiceClient();
+        const { data: settings } = await serviceClient
+            .from('user_settings')
+            .select('openai_api_key')
+            .eq('user_id', session.user.id)
+            .single();
+
+        const userOpenAIKey = settings?.openai_api_key || undefined;
+
+        const result = await generatePitch({ creator, campaignName, tone, productInfo, apiKey: userOpenAIKey });
+
+        // Log activity
+        logActivity(serviceClient, session.user.id, 'PITCH_GENERATED', {
+            creator_name: creator.name, tone, has_custom_key: !!userOpenAIKey,
         });
 
         return NextResponse.json(result);
@@ -45,4 +60,9 @@ export async function POST(request: NextRequest) {
         console.error('Pitch generation error:', error);
         return NextResponse.json({ error: 'Failed to generate pitch' }, { status: 500 });
     }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function logActivity(client: any, userId: string, actionType: string, details: Record<string, unknown>) {
+    client.from('activity_logs').insert({ user_id: userId, action_type: actionType, details }).then(() => { });
 }

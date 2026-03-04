@@ -2,8 +2,8 @@ import { trackQuotaUsage } from './quota';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
-function getApiKey(): string {
-    return process.env.YOUTUBE_API_KEY || '';
+function getApiKey(apiKey?: string): string {
+    return apiKey || process.env.YOUTUBE_API_KEY || '';
 }
 
 export interface YouTubeSearchResult {
@@ -43,22 +43,23 @@ export interface YouTubeVideo {
 export async function searchChannels(
     query: string,
     maxResults: number = 50,
-    regionCode?: string
+    regionCode?: string,
+    relevanceLanguage?: string,
+    apiKey?: string
 ): Promise<YouTubeSearchResult[]> {
-    const apiKey = getApiKey();
-    if (!apiKey) throw new Error('YouTube API key not configured');
+    const key = getApiKey(apiKey);
+    if (!key) throw new Error('YouTube API key not configured');
 
     const params = new URLSearchParams({
         part: 'snippet',
         q: query,
         type: 'channel',
         maxResults: String(Math.min(maxResults, 50)),
-        key: apiKey,
+        key,
     });
 
-    if (regionCode) {
-        params.set('regionCode', regionCode);
-    }
+    if (regionCode) params.set('regionCode', regionCode);
+    if (relevanceLanguage) params.set('relevanceLanguage', relevanceLanguage);
 
     const res = await fetch(`${YOUTUBE_API_BASE}/search?${params}`);
     if (!res.ok) {
@@ -79,30 +80,31 @@ export async function searchChannels(
 }
 
 /**
- * Find channels by searching for videos on a topic. 
+ * Find channels by searching for videos on a topic.
  * This is often more effective for finding active creators.
  * Cost: 100 units per call.
  */
 export async function searchChannelsByVideos(
     query: string,
     maxResults: number = 50,
-    regionCode?: string
+    regionCode?: string,
+    relevanceLanguage?: string,
+    apiKey?: string
 ): Promise<YouTubeSearchResult[]> {
-    const apiKey = getApiKey();
-    if (!apiKey) throw new Error('YouTube API key not configured');
+    const key = getApiKey(apiKey);
+    if (!key) throw new Error('YouTube API key not configured');
 
     const params = new URLSearchParams({
         part: 'snippet',
         q: query,
         type: 'video',
         maxResults: String(Math.min(maxResults, 50)),
-        key: apiKey,
+        key,
         order: 'relevance'
     });
 
-    if (regionCode) {
-        params.set('regionCode', regionCode);
-    }
+    if (regionCode) params.set('regionCode', regionCode);
+    if (relevanceLanguage) params.set('relevanceLanguage', relevanceLanguage);
 
     const res = await fetch(`${YOUTUBE_API_BASE}/search?${params}`);
     if (!res.ok) {
@@ -138,10 +140,11 @@ export async function searchChannelsByVideos(
  * Cost: 1 unit per call (batch of up to 50).
  */
 export async function getChannelDetails(
-    channelIds: string[]
+    channelIds: string[],
+    apiKey?: string
 ): Promise<YouTubeChannelDetails[]> {
-    const apiKey = getApiKey();
-    if (!apiKey) throw new Error('YouTube API key not configured');
+    const key = getApiKey(apiKey);
+    if (!key) throw new Error('YouTube API key not configured');
 
     const results: YouTubeChannelDetails[] = [];
 
@@ -151,7 +154,7 @@ export async function getChannelDetails(
         const params = new URLSearchParams({
             part: 'snippet,statistics,brandingSettings',
             id: batch.join(','),
-            key: apiKey,
+            key,
         });
 
         const res = await fetch(`${YOUTUBE_API_BASE}/channels?${params}`);
@@ -189,10 +192,11 @@ export async function getChannelDetails(
  */
 export async function getRecentVideos(
     channelId: string,
-    maxResults: number = 10
+    maxResults: number = 10,
+    apiKey?: string
 ): Promise<YouTubeVideo[]> {
-    const apiKey = getApiKey();
-    if (!apiKey) throw new Error('YouTube API key not configured');
+    const key = getApiKey(apiKey);
+    if (!key) throw new Error('YouTube API key not configured');
 
     // Step 1: Search for recent videos from this channel
     const searchParams = new URLSearchParams({
@@ -201,7 +205,7 @@ export async function getRecentVideos(
         order: 'date',
         type: 'video',
         maxResults: String(Math.min(maxResults, 50)),
-        key: apiKey,
+        key,
     });
 
     const searchRes = await fetch(`${YOUTUBE_API_BASE}/search?${searchParams}`);
@@ -222,7 +226,7 @@ export async function getRecentVideos(
     const statsParams = new URLSearchParams({
         part: 'statistics,snippet',
         id: videoIds.join(','),
-        key: apiKey,
+        key,
     });
 
     const statsRes = await fetch(`${YOUTUBE_API_BASE}/videos?${statsParams}`);

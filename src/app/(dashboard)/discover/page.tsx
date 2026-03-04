@@ -20,9 +20,10 @@ import {
     Globe,
     Youtube,
     X,
-    ChevronDown,
     Database,
     Sparkles,
+    Languages,
+    MapPin,
 } from 'lucide-react';
 
 interface Creator {
@@ -48,11 +49,19 @@ interface Creator {
     custom_url: string | null;
 }
 
-const COUNTRIES = [
-    { name: 'All Countries', code: '' },
+// ── Filter Config ────────────────────────────────────────────────────────────
+
+const LANGUAGES = [
+    { label: 'English', code: 'en' },
+    { label: 'Hindi', code: 'hi' },
+    { label: 'Bangla', code: 'bn' },
+];
+
+const REGIONS = [
     { name: 'India', code: 'IN' },
-    { name: 'Pakistan', code: 'PK' },
     { name: 'Bangladesh', code: 'BD' },
+    { name: 'USA', code: 'US' },
+    { name: 'Pakistan', code: 'PK' },
     { name: 'Indonesia', code: 'ID' },
     { name: 'Vietnam', code: 'VN' },
     { name: 'Thailand', code: 'TH' },
@@ -64,18 +73,15 @@ const COUNTRIES = [
     { name: 'Sri Lanka', code: 'LK' },
     { name: 'Nepal', code: 'NP' },
     { name: 'Turkey', code: 'TR' },
-    { name: 'United Arab Emirates', code: 'AE' },
+    { name: 'UAE', code: 'AE' },
     { name: 'Saudi Arabia', code: 'SA' },
-    { name: 'Uzbekistan', code: 'UZ' },
-    { name: 'Kazakhstan', code: 'KZ' },
-    { name: 'Israel', code: 'IL' },
-    { name: 'Taiwan', code: 'TW' },
-    { name: 'Hong Kong', code: 'HK' },
-    { name: 'China', code: 'CN' },
-    { name: 'United States', code: 'US' },
-    { name: 'United Kingdom', code: 'GB' },
+    { name: 'UK', code: 'GB' },
     { name: 'Canada', code: 'CA' },
 ];
+
+const MAX_COMBINATIONS = 5;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatNumber(num: number): string {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -99,12 +105,62 @@ function getBadges(creator: Creator): Array<{ text: string; className: string }>
     return badges;
 }
 
+// ── Multi-Select Checkbox Component ─────────────────────────────────────────
+
+function MultiCheckbox({
+    options,
+    selected,
+    onChange,
+}: {
+    options: { label?: string; name?: string; code: string }[];
+    selected: string[];
+    onChange: (code: string) => void;
+}) {
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {options.map(opt => {
+                const label = opt.label ?? opt.name ?? opt.code;
+                const isChecked = selected.includes(opt.code);
+                return (
+                    <label
+                        key={opt.code}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            cursor: 'pointer', padding: '4px 6px', borderRadius: 7,
+                            background: isChecked ? 'rgba(99,102,241,0.10)' : 'transparent',
+                            border: `1px solid ${isChecked ? 'rgba(99,102,241,0.35)' : 'transparent'}`,
+                            transition: 'all 0.15s',
+                            fontSize: 12.5, color: isChecked ? '#a5b4fc' : 'var(--text-secondary)',
+                        }}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => onChange(opt.code)}
+                            style={{ accentColor: '#818cf8', width: 13, height: 13, cursor: 'pointer' }}
+                        />
+                        {label}
+                        <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.55, fontFamily: 'monospace' }}>
+                            {opt.code}
+                        </span>
+                    </label>
+                );
+            })}
+        </div>
+    );
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+
 export default function DiscoverPage() {
     const [query, setQuery] = useState('');
     const [minSubs, setMinSubs] = useState('');
     const [maxSubs, setMaxSubs] = useState('');
-    const [selectedCountry, setSelectedCountry] = useState('');
-    const [countrySearch, setCountrySearch] = useState('');
+
+    // Multi-select state
+    const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+    const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+
     const [results, setResults] = useState<Creator[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -119,13 +175,43 @@ export default function DiscoverPage() {
     const [selectedCampaign, setSelectedCampaign] = useState('');
     const [newCampaignName, setNewCampaignName] = useState('');
 
-    const filteredCountries = COUNTRIES.filter(c =>
-        c.name.toLowerCase().includes(countrySearch.toLowerCase())
-    );
+    // ── Toggle helpers ──────────────────────────────────────────────────────
+    function toggleRegion(code: string) {
+        setSelectedRegions(prev =>
+            prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+        );
+    }
 
+    function toggleLanguage(code: string) {
+        setSelectedLanguages(prev =>
+            prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+        );
+    }
+
+    function clearFilters() {
+        setMinSubs('');
+        setMaxSubs('');
+        setSelectedRegions([]);
+        setSelectedLanguages([]);
+    }
+
+    const combinations = Math.max(selectedRegions.length, 1) * Math.max(selectedLanguages.length, 1);
+    const tooManyCombinations = combinations > MAX_COMBINATIONS;
+    const hasActiveFilters = minSubs || maxSubs || selectedRegions.length > 0 || selectedLanguages.length > 0;
+
+    // ── Search ──────────────────────────────────────────────────────────────
     async function handleSearch(e: React.FormEvent) {
         e.preventDefault();
         if (!query.trim()) return;
+
+        // Client-side quota guard
+        if (tooManyCombinations) {
+            setError(
+                `⚠️ Too many filter combinations (${combinations}). ` +
+                `Select at most ${MAX_COMBINATIONS} language × region pairs to protect your daily quota.`
+            );
+            return;
+        }
 
         setLoading(true);
         setError(null);
@@ -136,7 +222,8 @@ export default function DiscoverPage() {
         const params = new URLSearchParams({ query: query.trim() });
         if (minSubs) params.set('minSubs', minSubs);
         if (maxSubs) params.set('maxSubs', maxSubs);
-        if (selectedCountry) params.set('country', selectedCountry);
+        if (selectedRegions.length > 0) params.set('regions', selectedRegions.join(','));
+        if (selectedLanguages.length > 0) params.set('languages', selectedLanguages.join(','));
 
         try {
             const eventSource = new EventSource(`/api/search/stream?${params}`);
@@ -250,6 +337,7 @@ export default function DiscoverPage() {
         setSelectedCampaign('');
     }
 
+    // ── Render ──────────────────────────────────────────────────────────────
     return (
         <div className="page-container">
             {/* Page Header */}
@@ -282,7 +370,7 @@ export default function DiscoverPage() {
                     <button
                         type="submit"
                         className="btn btn-primary"
-                        disabled={loading || !query.trim()}
+                        disabled={loading || !query.trim() || tooManyCombinations}
                         style={{ minWidth: 148 }}
                     >
                         {loading ? <Loader2 size={15} className="loading-spinner" /> : <Search size={15} />}
@@ -310,26 +398,56 @@ export default function DiscoverPage() {
                 </div>
             </form>
 
+            {/* Quota combo warning banner */}
+            {tooManyCombinations && (
+                <div style={{
+                    marginBottom: 16, padding: '12px 16px',
+                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+                    borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                    <Sparkles size={14} style={{ color: '#f87171', flexShrink: 0 }} />
+                    <p style={{ color: '#f87171', fontSize: 13, margin: 0 }}>
+                        <strong>{combinations} combinations</strong> selected. Maximum is {MAX_COMBINATIONS} (language × region) to protect your 10,000-unit daily quota.
+                        Please deselect some languages or regions.
+                    </p>
+                </div>
+            )}
+
             <div className="discover-layout">
                 {/* Filter Sidebar */}
                 {showFilters && (
                     <div className="discover-filters">
                         <div className="glass-card" style={{ padding: 18 }}>
+                            {/* Filter header */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                 <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 7, color: 'white' }}>
                                     <SlidersHorizontal size={14} style={{ color: '#818cf8' }} />
                                     Filters
                                 </h3>
-                                {(minSubs || maxSubs || selectedCountry) && (
+                                {hasActiveFilters && (
                                     <button
                                         className="btn btn-ghost btn-sm"
-                                        onClick={() => { setMinSubs(''); setMaxSubs(''); setSelectedCountry(''); setCountrySearch(''); }}
+                                        onClick={clearFilters}
                                         style={{ fontSize: 11 }}
                                     >
                                         <X size={11} /> Clear
                                     </button>
                                 )}
                             </div>
+
+                            {/* Combination indicator */}
+                            {(selectedRegions.length > 0 || selectedLanguages.length > 0) && (
+                                <div style={{
+                                    marginBottom: 14, padding: '7px 10px',
+                                    background: tooManyCombinations ? 'rgba(239,68,68,0.08)' : 'rgba(99,102,241,0.08)',
+                                    border: `1px solid ${tooManyCombinations ? 'rgba(239,68,68,0.25)' : 'rgba(99,102,241,0.2)'}`,
+                                    borderRadius: 8, fontSize: 11.5,
+                                    color: tooManyCombinations ? '#f87171' : '#a5b4fc',
+                                }}>
+                                    {combinations} API call{combinations !== 1 ? 's' : ''} · {combinations * 201} units
+                                    {tooManyCombinations && ' ⚠️ Over limit'}
+                                </div>
+                            )}
 
                             {/* Subscriber Range */}
                             <div className="filter-section">
@@ -358,51 +476,7 @@ export default function DiscoverPage() {
                                 </div>
                             </div>
 
-                            {/* Country */}
-                            <div className="filter-section">
-                                <div className="filter-section-title">Country</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    <div className="input-group">
-                                        <Search size={13} className="input-icon" />
-                                        <input
-                                            type="text"
-                                            className="input input-sm input-with-icon"
-                                            placeholder="Search country..."
-                                            value={countrySearch}
-                                            onChange={(e) => setCountrySearch(e.target.value)}
-                                        />
-                                    </div>
-                                    <select
-                                        className="select input input-sm"
-                                        value={selectedCountry}
-                                        onChange={(e) => {
-                                            const code = e.target.value;
-                                            setSelectedCountry(code);
-                                            const country = COUNTRIES.find(c => c.code === code);
-                                            setCountrySearch(country && country.code ? country.name : '');
-                                        }}
-                                        size={Math.min(filteredCountries.length, 5)}
-                                        style={{ height: 'auto', cursor: 'pointer', backgroundImage: 'none', paddingRight: '10px' }}
-                                    >
-                                        {filteredCountries.map((c) => (
-                                            <option key={c.code} value={c.code}>{c.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                {selectedCountry && (
-                                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-                                        <span className="badge active" style={{ fontSize: 11 }}>
-                                            {COUNTRIES.find(c => c.code === selectedCountry)?.name || selectedCountry}
-                                        </span>
-                                        <button className="btn btn-ghost btn-sm" style={{ padding: '2px 5px', fontSize: 10 }}
-                                            onClick={() => { setSelectedCountry(''); setCountrySearch(''); }}>
-                                            <X size={10} />
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Quick Filters */}
+                            {/* Quick Subscriber Presets */}
                             <div className="filter-section">
                                 <div className="filter-section-title">Quick Filters</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -425,6 +499,42 @@ export default function DiscoverPage() {
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+
+                            {/* Language — Multi-Select */}
+                            <div className="filter-section">
+                                <div className="filter-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Languages size={12} style={{ color: '#818cf8' }} />
+                                    Language
+                                    {selectedLanguages.length > 0 && (
+                                        <span className="badge active" style={{ fontSize: 10, marginLeft: 'auto' }}>
+                                            {selectedLanguages.length} selected
+                                        </span>
+                                    )}
+                                </div>
+                                <MultiCheckbox
+                                    options={LANGUAGES}
+                                    selected={selectedLanguages}
+                                    onChange={toggleLanguage}
+                                />
+                            </div>
+
+                            {/* Region (Country) — Multi-Select */}
+                            <div className="filter-section">
+                                <div className="filter-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <MapPin size={12} style={{ color: '#818cf8' }} />
+                                    Region
+                                    {selectedRegions.length > 0 && (
+                                        <span className="badge active" style={{ fontSize: 10, marginLeft: 'auto' }}>
+                                            {selectedRegions.length} selected
+                                        </span>
+                                    )}
+                                </div>
+                                <MultiCheckbox
+                                    options={REGIONS}
+                                    selected={selectedRegions}
+                                    onChange={toggleRegion}
+                                />
                             </div>
                         </div>
                     </div>
@@ -450,7 +560,8 @@ export default function DiscoverPage() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
                                 <Loader2 size={16} className="loading-spinner" style={{ color: '#818cf8' }} />
                                 <span style={{ fontSize: 14, fontWeight: 600, color: 'white' }}>
-                                    Searching YouTube...
+                                    Searching YouTube
+                                    {combinations > 1 ? ` (${combinations} parallel requests)` : ''}...
                                 </span>
                             </div>
                             <div className="loading-steps">
@@ -484,6 +595,14 @@ export default function DiscoverPage() {
                             <div className="results-bar">
                                 <span className="results-count">
                                     Found <strong>{results.length}</strong> creators
+                                    {(selectedRegions.length > 0 || selectedLanguages.length > 0) && (
+                                        <span style={{ fontSize: 11.5, color: 'var(--text-muted)', marginLeft: 8 }}>
+                                            · {[
+                                                selectedLanguages.length > 0 && selectedLanguages.map(l => LANGUAGES.find(x => x.code === l)?.label ?? l).join(', '),
+                                                selectedRegions.length > 0 && selectedRegions.join(', '),
+                                            ].filter(Boolean).join(' · ')}
+                                        </span>
+                                    )}
                                 </span>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                     {selectedCreators.length > 0 && (
@@ -632,8 +751,9 @@ export default function DiscoverPage() {
                             </div>
                             <div className="empty-state-title">Start Discovering Creators</div>
                             <div className="empty-state-desc">
-                                Enter a keyword above and hit <strong style={{ color: 'white' }}>Search YouTube</strong> to scout creators.
-                                Results are enriched with social handles and scored automatically.
+                                Enter a keyword, select languages &amp; regions, then hit{' '}
+                                <strong style={{ color: 'white' }}>Search YouTube</strong>.
+                                Parallel requests are fired for each language × region pair.
                             </div>
                             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
                                 <button className="btn btn-secondary btn-sm" onClick={() => { setQuery('Crypto India'); }}>

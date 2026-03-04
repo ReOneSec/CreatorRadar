@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
     Settings, Key, Info, Save, Check, AlertTriangle,
     Plus, Trash2, FileText, Sparkles, ShieldCheck, Activity,
-    ExternalLink, BarChart3,
+    ExternalLink, BarChart3, Eye, EyeOff, Lock,
 } from 'lucide-react';
 
 interface Template {
@@ -17,18 +17,22 @@ interface Template {
 }
 
 const PLATFORM_ICONS: Record<string, string> = {
-    email: '📧',
-    telegram: '✈️',
-    twitter: '🐦',
+    email: '📧', telegram: '✈️', twitter: '🐦',
 };
 
-export default function SettingsPage() {
-    const [apiKey, setApiKey] = useState('');
-    const [openaiKey, setOpenaiKey] = useState('');
-    const [savedYT, setSavedYT] = useState(false);
-    const [savedAI, setSavedAI] = useState(false);
-    const [quotaInfo, setQuotaInfo] = useState<{ used: number; remaining: number; resetTime: string; total: number } | null>(null);
+interface KeyState {
+    value: string;
+    masked: string | null;
+    isSaved: boolean;
+    showRaw: boolean;
+}
 
+export default function SettingsPage() {
+    const [ytKey, setYtKey] = useState<KeyState>({ value: '', masked: null, isSaved: false, showRaw: false });
+    const [aiKey, setAiKey] = useState<KeyState>({ value: '', masked: null, isSaved: false, showRaw: false });
+    const [savingYT, setSavingYT] = useState(false);
+    const [savingAI, setSavingAI] = useState(false);
+    const [quotaInfo, setQuotaInfo] = useState<{ used: number; remaining: number; resetTime: string; total: number } | null>(null);
     const [templates, setTemplates] = useState<Template[]>([]);
     const [showNewTemplate, setShowNewTemplate] = useState(false);
     const [tplName, setTplName] = useState('');
@@ -36,11 +40,12 @@ export default function SettingsPage() {
     const [tplBody, setTplBody] = useState('');
     const [tplPlatform, setTplPlatform] = useState('email');
 
+    // Load keys from DB on mount
     useEffect(() => {
-        const storedKey = localStorage.getItem('youtube_api_key');
-        if (storedKey) setApiKey(storedKey);
-        const storedAI = localStorage.getItem('openai_api_key');
-        if (storedAI) setOpenaiKey(storedAI);
+        fetch('/api/settings/keys').then(r => r.json()).then(data => {
+            if (data.youtube_key_masked) setYtKey(prev => ({ ...prev, masked: data.youtube_key_masked }));
+            if (data.openai_key_masked) setAiKey(prev => ({ ...prev, masked: data.openai_key_masked }));
+        }).catch(console.error);
         fetch('/api/quota').then(r => r.json()).then(setQuotaInfo).catch(console.error);
     }, []);
 
@@ -54,16 +59,34 @@ export default function SettingsPage() {
 
     useEffect(() => { loadTemplates(); }, [loadTemplates]);
 
-    function saveYTKey() {
-        localStorage.setItem('youtube_api_key', apiKey);
-        setSavedYT(true);
-        setTimeout(() => setSavedYT(false), 3000);
+    async function saveYTKey() {
+        if (!ytKey.value.trim()) return;
+        setSavingYT(true);
+        try {
+            await fetch('/api/settings/keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ youtube_api_key: ytKey.value.trim() }),
+            });
+            const masked = ytKey.value.substring(0, 6) + '...' + ytKey.value.substring(ytKey.value.length - 4);
+            setYtKey(prev => ({ ...prev, value: '', masked, isSaved: true }));
+            setTimeout(() => setYtKey(prev => ({ ...prev, isSaved: false })), 3000);
+        } finally { setSavingYT(false); }
     }
 
-    function saveAIKey() {
-        localStorage.setItem('openai_api_key', openaiKey);
-        setSavedAI(true);
-        setTimeout(() => setSavedAI(false), 3000);
+    async function saveAIKey() {
+        if (!aiKey.value.trim()) return;
+        setSavingAI(true);
+        try {
+            await fetch('/api/settings/keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ openai_api_key: aiKey.value.trim() }),
+            });
+            const masked = aiKey.value.substring(0, 5) + '...' + aiKey.value.substring(aiKey.value.length - 4);
+            setAiKey(prev => ({ ...prev, value: '', masked, isSaved: true }));
+            setTimeout(() => setAiKey(prev => ({ ...prev, isSaved: false })), 3000);
+        } finally { setSavingAI(false); }
     }
 
     async function createTemplate() {
@@ -83,16 +106,64 @@ export default function SettingsPage() {
         setTemplates(prev => prev.filter(t => t.id !== id));
     }
 
-    const quotaPercent = quotaInfo
-        ? Math.round(((quotaInfo.total - quotaInfo.used) / quotaInfo.total) * 100)
-        : 100;
+    const quotaPercent = quotaInfo ? Math.round(((quotaInfo.total - quotaInfo.used) / quotaInfo.total) * 100) : 100;
+
+    function KeyInput({ state, setState, placeholder, onSave, saving, label, color, icon }: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        state: KeyState; setState: any; placeholder: string; onSave: () => void;
+        saving: boolean; label: string; color: string; icon: React.ReactNode;
+    }) {
+        return (
+            <div className="settings-field">
+                <label className="label">{label}</label>
+                {state.masked && !state.value ? (
+                    <div style={{ display: 'flex', gap: 10 }}>
+                        <div style={{
+                            flex: 1, display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '10px 14px', borderRadius: 10,
+                            background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+                        }}>
+                            <Lock size={14} style={{ color: '#34d399', flexShrink: 0 }} />
+                            <code style={{ color: '#34d399', fontSize: 13.5, fontFamily: 'monospace' }}>{state.masked}</code>
+                            <span style={{ marginLeft: 'auto', fontSize: 11, background: 'rgba(16,185,129,0.15)', color: '#34d399', padding: '2px 8px', borderRadius: 20 }}>Saved ✓</span>
+                        </div>
+                        <button className="btn btn-sm btn-secondary" onClick={() => setState((p: KeyState) => ({ ...p, masked: null, value: '' }))}>
+                            Update
+                        </button>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', gap: 10 }}>
+                        <div style={{ position: 'relative', flex: 1 }}>
+                            <input
+                                type={state.showRaw ? 'text' : 'password'} className="input"
+                                placeholder={placeholder} value={state.value}
+                                onChange={e => setState((p: KeyState) => ({ ...p, value: e.target.value }))}
+                                style={{ paddingRight: 40 }}
+                            />
+                            <button type="button" onClick={() => setState((p: KeyState) => ({ ...p, showRaw: !p.showRaw }))}
+                                style={{
+                                    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                                    background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)',
+                                }}>
+                                {state.showRaw ? <EyeOff size={15} /> : <Eye size={15} />}
+                            </button>
+                        </div>
+                        <button className={`btn ${state.isSaved ? 'btn-secondary' : 'btn-primary'}`}
+                            onClick={onSave} disabled={!state.value.trim() || saving} style={{ minWidth: 94 }}>
+                            {state.isSaved ? <><Check size={15} /> Saved!</> : saving ? 'Saving...' : <><Save size={15} /> Save</>}
+                        </button>
+                    </div>
+                )}
+                {icon}
+            </div>
+        );
+    }
 
     return (
         <div className="page-container">
-            {/* Page Header */}
             <div className="page-header">
                 <h1 className="page-title">Settings</h1>
-                <p className="page-subtitle">Configure your CreatorRadar system</p>
+                <p className="page-subtitle">Configure your CreatorRadar workspace</p>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
@@ -105,41 +176,27 @@ export default function SettingsPage() {
                         YouTube API Configuration
                     </h2>
 
-                    <div className="settings-field">
-                        <label className="label">YouTube Data API v3 Key</label>
-                        <div style={{ display: 'flex', gap: 10 }}>
-                            <input
-                                type="password"
-                                className="input"
-                                placeholder="AIza..."
-                                value={apiKey}
-                                onChange={(e) => setApiKey(e.target.value)}
-                                style={{ flex: 1 }}
-                            />
-                            <button className="btn btn-primary" onClick={saveYTKey} style={{ minWidth: 94 }}>
-                                {savedYT ? <Check size={15} /> : <Save size={15} />}
-                                {savedYT ? 'Saved!' : 'Save'}
-                            </button>
-                        </div>
-                        <p className="settings-field-desc">
-                            Get your key from the{' '}
-                            <a
-                                href="https://console.cloud.google.com/apis/credentials"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color: '#818cf8', display: 'inline-flex', alignItems: 'center', gap: 3 }}
-                            >
-                                Google Cloud Console <ExternalLink size={11} />
-                            </a>
-                        </p>
-                    </div>
+                    <KeyInput
+                        state={ytKey} setState={setYtKey} placeholder="AIza..."
+                        onSave={saveYTKey} saving={savingYT} label="YouTube Data API v3 Key"
+                        color="#f87171"
+                        icon={
+                            <p className="settings-field-desc">
+                                Get your key from the{' '}
+                                <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer"
+                                    style={{ color: '#818cf8', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                    Google Cloud Console <ExternalLink size={11} />
+                                </a>. Your key is stored securely in the database and never exposed to other users.
+                            </p>
+                        }
+                    />
 
                     <div className="alert-box warning">
                         <AlertTriangle size={15} style={{ color: 'var(--accent-amber)', flexShrink: 0, marginTop: 1 }} />
                         <div>
-                            <div className="alert-box-title">Important</div>
+                            <div className="alert-box-title">Quota Saver Active</div>
                             <p className="alert-box-text">
-                                Also set <code>YOUTUBE_API_KEY</code> in your <code>.env.local</code> file for server-side API calls. The key saved here is only used for client-side features.
+                                Your search results are shared in a 48-hour anonymous cache. If another user already searched the same query, you won&apos;t use any quota at all.
                             </p>
                         </div>
                     </div>
@@ -154,26 +211,16 @@ export default function SettingsPage() {
                         AI Pitch Generator
                     </h2>
 
-                    <div className="settings-field">
-                        <label className="label">OpenAI API Key</label>
-                        <div style={{ display: 'flex', gap: 10 }}>
-                            <input
-                                type="password"
-                                className="input"
-                                placeholder="sk-..."
-                                value={openaiKey}
-                                onChange={(e) => setOpenaiKey(e.target.value)}
-                                style={{ flex: 1 }}
-                            />
-                            <button className="btn btn-primary" onClick={saveAIKey} style={{ minWidth: 94 }}>
-                                {savedAI ? <Check size={15} /> : <Save size={15} />}
-                                {savedAI ? 'Saved!' : 'Save'}
-                            </button>
-                        </div>
-                        <p className="settings-field-desc">
-                            Also set <code>OPENAI_API_KEY</code> in <code>.env.local</code> for server-side pitch generation. Without it, pitches use a built-in template.
-                        </p>
-                    </div>
+                    <KeyInput
+                        state={aiKey} setState={setAiKey} placeholder="sk-..."
+                        onSave={saveAIKey} saving={savingAI} label="OpenAI API Key"
+                        color="#c084fc"
+                        icon={
+                            <p className="settings-field-desc">
+                                Required for AI-powered pitch generation using GPT-4o mini. Without it, pitches use a built-in template. Keys are encrypted at rest.
+                            </p>
+                        }
+                    />
                 </div>
 
                 {/* Outreach Templates */}
@@ -191,31 +238,17 @@ export default function SettingsPage() {
                     </div>
 
                     {showNewTemplate && (
-                        <div style={{
-                            background: 'rgba(255,255,255,0.025)', border: '1px solid var(--border-glass)',
-                            borderRadius: 12, padding: 18, marginBottom: 16,
-                        }}>
+                        <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid var(--border-glass)', borderRadius: 12, padding: 18, marginBottom: 16 }}>
                             <div className="settings-field">
                                 <label className="label">Template Name</label>
-                                <input
-                                    type="text"
-                                    className="input"
-                                    placeholder="e.g. Crypto Campaign Intro"
-                                    value={tplName}
-                                    onChange={e => setTplName(e.target.value)}
-                                    autoFocus
-                                />
+                                <input type="text" className="input" placeholder="e.g. Crypto Campaign Intro"
+                                    value={tplName} onChange={e => setTplName(e.target.value)} autoFocus />
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 12 }}>
                                 <div className="settings-field">
                                     <label className="label">Subject Line</label>
-                                    <input
-                                        type="text"
-                                        className="input"
-                                        placeholder="Partnership Opportunity"
-                                        value={tplSubject}
-                                        onChange={e => setTplSubject(e.target.value)}
-                                    />
+                                    <input type="text" className="input" placeholder="Partnership Opportunity"
+                                        value={tplSubject} onChange={e => setTplSubject(e.target.value)} />
                                 </div>
                                 <div className="settings-field">
                                     <label className="label">Platform</label>
@@ -228,22 +261,13 @@ export default function SettingsPage() {
                             </div>
                             <div className="settings-field">
                                 <label className="label">Message Body</label>
-                                <textarea
-                                    className="input"
-                                    rows={4}
-                                    placeholder="Hi {name}, I noticed your channel..."
-                                    value={tplBody}
-                                    onChange={e => setTplBody(e.target.value)}
-                                    style={{ resize: 'vertical' }}
-                                />
+                                <textarea className="input" rows={4} placeholder="Hi {name}, I noticed your channel..."
+                                    value={tplBody} onChange={e => setTplBody(e.target.value)} style={{ resize: 'vertical' }} />
                             </div>
                             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                                 <button className="btn btn-sm btn-secondary" onClick={() => setShowNewTemplate(false)}>Cancel</button>
-                                <button
-                                    className="btn btn-sm btn-primary"
-                                    onClick={createTemplate}
-                                    disabled={!tplName.trim() || !tplBody.trim()}
-                                >
+                                <button className="btn btn-sm btn-primary" onClick={createTemplate}
+                                    disabled={!tplName.trim() || !tplBody.trim()}>
                                     <Save size={12} /> Save Template
                                 </button>
                             </div>
@@ -253,15 +277,11 @@ export default function SettingsPage() {
                     {templates.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {templates.map(t => (
-                                <div
-                                    key={t.id}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        padding: '12px 16px', background: 'rgba(255,255,255,0.025)',
-                                        border: '1px solid var(--border-glass)', borderRadius: 10,
-                                        transition: 'border-color 0.2s',
-                                    }}
-                                >
+                                <div key={t.id} style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    padding: '12px 16px', background: 'rgba(255,255,255,0.025)',
+                                    border: '1px solid var(--border-glass)', borderRadius: 10,
+                                }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                         <span style={{ fontSize: 18 }}>{PLATFORM_ICONS[t.platform] || '📄'}</span>
                                         <div>
@@ -271,10 +291,7 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
                                     </div>
-                                    <button
-                                        className="btn btn-sm btn-danger"
-                                        onClick={() => deleteTemplate(t.id)}
-                                    >
+                                    <button className="btn btn-sm btn-danger" onClick={() => deleteTemplate(t.id)}>
                                         <Trash2 size={12} />
                                     </button>
                                 </div>
@@ -288,39 +305,30 @@ export default function SettingsPage() {
                     )}
                 </div>
 
-                {/* Quota Information */}
+                {/* Quota Info */}
                 <div className="glass-card settings-section">
                     <h2 className="settings-section-title">
                         <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <Activity size={15} style={{ color: '#818cf8' }} />
                         </div>
-                        Quota & Usage
+                        Quota &amp; Usage
                     </h2>
-
-                    {/* Quota Bar */}
                     {quotaInfo && (
                         <div style={{ marginBottom: 20 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>
-                                    Daily API Quota
-                                </span>
+                                <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Daily API Quota</span>
                                 <span style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>
                                     {quotaInfo.remaining.toLocaleString()} / {(quotaInfo.total || 10000).toLocaleString()} remaining
                                 </span>
                             </div>
                             <div className="quota-bar" style={{ height: 8 }}>
-                                <div
-                                    className={`quota-bar-fill ${quotaPercent <= 20 ? 'danger' : quotaPercent <= 50 ? 'warning' : ''}`}
-                                    style={{ width: `${quotaPercent}%` }}
-                                />
+                                <div className={`quota-bar-fill ${quotaPercent <= 20 ? 'danger' : quotaPercent <= 50 ? 'warning' : ''}`}
+                                    style={{ width: `${quotaPercent}%` }} />
                             </div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-                                Resets in {quotaInfo.resetTime}
-                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>Resets in {quotaInfo.resetTime}</div>
                         </div>
                     )}
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                         <div className="stat-card" style={{ padding: 16 }}>
                             <div className="stat-card-icon emerald"><BarChart3 size={16} /></div>
                             <div className="stat-card-value" style={{ fontSize: '1.5rem' }}>{quotaInfo?.remaining?.toLocaleString() || '10,000'}</div>
@@ -337,40 +345,6 @@ export default function SettingsPage() {
                             <div className="stat-card-label">Resets In</div>
                         </div>
                     </div>
-
-                    {/* Cost Breakdown */}
-                    <h3 style={{ fontSize: 13.5, fontWeight: 700, color: 'white', marginBottom: 12 }}>API Cost Breakdown</h3>
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>Operation</th>
-                                <th>Cost</th>
-                                <th>Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Channel Search</td>
-                                <td><span className="badge stale">100 units</span></td>
-                                <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>Per search query</td>
-                            </tr>
-                            <tr>
-                                <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Channel Details</td>
-                                <td><span className="badge engagement">1 unit</span></td>
-                                <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>Up to 50 channels/batch</td>
-                            </tr>
-                            <tr>
-                                <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Video Search</td>
-                                <td><span className="badge stale">100 units</span></td>
-                                <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>Per channel</td>
-                            </tr>
-                            <tr>
-                                <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Video Details</td>
-                                <td><span className="badge engagement">1 unit</span></td>
-                                <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>Batch stats</td>
-                            </tr>
-                        </tbody>
-                    </table>
                 </div>
 
                 {/* About */}
@@ -390,6 +364,12 @@ export default function SettingsPage() {
                         <span className="badge micro">YouTube API v3</span>
                         <span className="badge stale">OpenAI</span>
                         <span className="badge engagement">Tailwind v4</span>
+                    </div>
+                    <div className="alert-box" style={{ marginTop: 16, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                        <Info size={15} style={{ color: '#818cf8', flexShrink: 0, marginTop: 1 }} />
+                        <p className="alert-box-text" style={{ color: 'var(--text-secondary)' }}>
+                            Your API keys are stored securely in our database with row-level security. Only you can read your own keys — not even admins can see the actual key values.
+                        </p>
                     </div>
                 </div>
             </div>

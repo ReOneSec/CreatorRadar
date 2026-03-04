@@ -1,9 +1,5 @@
 import OpenAI from 'openai';
 
-const openai = process.env.OPENAI_API_KEY
-    ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    : null;
-
 interface CreatorInfo {
     name: string;
     subscribers: number;
@@ -18,13 +14,21 @@ interface PitchParams {
     campaignName?: string;
     tone: 'professional' | 'casual' | 'friendly';
     productInfo?: string;
+    apiKey?: string;
+}
+
+function getOpenAIClient(apiKey?: string): OpenAI | null {
+    const key = apiKey || process.env.OPENAI_API_KEY;
+    if (!key) return null;
+    return new OpenAI({ apiKey: key });
 }
 
 /**
  * Generate an outreach pitch using OpenAI, or fallback to a template
  */
 export async function generatePitch(params: PitchParams): Promise<{ subject: string; pitch: string }> {
-    const { creator, campaignName, tone, productInfo } = params;
+    const { creator, campaignName, tone, productInfo, apiKey } = params;
+    const openai = getOpenAIClient(apiKey);
 
     if (!openai) {
         return getTemplatePitch(params);
@@ -82,7 +86,9 @@ Rules:
 /**
  * Expand a search query with country-specific keywords using OpenAI
  */
-export async function expandSearchQuery(query: string, countryName: string): Promise<string[]> {
+export async function expandSearchQuery(query: string, countryName: string, apiKey?: string): Promise<string[]> {
+    const openai = getOpenAIClient(apiKey);
+
     if (!openai || !countryName || countryName === 'All Countries') {
         return [`${query} ${countryName}`.trim()];
     }
@@ -110,7 +116,6 @@ Return ONLY a JSON array of strings: ["term1", "term2", "term3"]`;
             if (Array.isArray(parsed)) return parsed;
             if (parsed.keywords) return parsed.keywords;
             if (parsed.terms) return parsed.terms;
-            // Handle common wrapper names
             const firstKey = Object.keys(parsed)[0];
             if (Array.isArray(parsed[firstKey])) return parsed[firstKey];
         }
