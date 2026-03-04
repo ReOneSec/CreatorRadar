@@ -57,7 +57,7 @@ function DashboardSkeleton() {
           </div>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="dash-two-col">
         {[1, 2].map((i) => (
           <div key={i} className="glass-card">
             <div className="skeleton" style={{ width: 120, height: 18, marginBottom: 20 }} />
@@ -177,7 +177,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Two Column Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div className="dash-two-col">
         {/* Quick Actions */}
         <div className="glass-card">
           <h2 className="section-title">

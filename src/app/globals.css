@@ -120,6 +120,95 @@ html, body {
   animation: fadeIn 0.3s ease;
 }
 
+/* ==================== MOBILE TOP BAR ==================== */
+.mobile-topbar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  height: 56px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-glass);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  flex-shrink: 0;
+}
+
+.mobile-topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.mobile-topbar-logo-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 14px rgba(99,102,241,0.3);
+}
+
+.mobile-topbar-logo-text {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.mobile-topbar-logo-text span {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hamburger-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-glass);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.18s;
+}
+
+.hamburger-btn:hover {
+  background: rgba(255,255,255,0.09);
+}
+
+.hamburger-line {
+  width: 18px;
+  height: 1.5px;
+  background: var(--text-secondary);
+  border-radius: 2px;
+  transition: all 0.25s;
+}
+
+/* Sidebar overlay backdrop */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(2px);
+  z-index: 49;
+  animation: fadeIn 0.2s ease;
+}
+
 /* Page Header */
 .page-header {
   margin-bottom: 32px;
@@ -1260,6 +1349,14 @@ code {
   text-transform: capitalize;
 }
 
+/* ==================== DASH TWO COL GRID ==================== */
+.dash-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
 /* ==================== RESPONSIVE ==================== */
 @media (max-width: 1024px) {
   .discover-layout {
@@ -1271,17 +1368,38 @@ code {
   .kanban-board {
     grid-template-columns: repeat(2, 1fr);
   }
+  .campaign-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
+  /* Show mobile top bar, hide sidebar by default */
+  .mobile-topbar {
+    display: flex;
+  }
   .sidebar {
     transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-overlay {
+    display: block;
   }
   .main-content {
     margin-left: 0;
   }
   .page-container {
-    padding: 24px 16px;
+    padding: 20px 14px;
+  }
+  .page-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .page-title {
+    font-size: 1.4rem;
   }
   .kanban-board {
     grid-template-columns: 1fr;
@@ -1291,5 +1409,38 @@ code {
   }
   .creator-results-grid {
     grid-template-columns: 1fr;
+  }
+  .dash-two-col {
+    grid-template-columns: 1fr;
+  }
+  .campaign-grid {
+    grid-template-columns: 1fr;
+  }
+  .campaign-stage-pills {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .discover-layout {
+    grid-template-columns: 1fr;
+  }
+  .discover-filters {
+    position: static;
+  }
+  .results-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .modal {
+    padding: 20px 16px;
+    border-radius: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .page-container {
+    padding: 16px 12px;
   }
 }
